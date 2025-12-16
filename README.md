@@ -83,3 +83,15 @@ Com certeza existe uma maneira de ler esses schemas, as quais eu admito que não
 Dentro do envelope haverá uma TAG `<MensagemXML></MensagemXML>` dentro dela você precisará colocar esse xml que você criou, mas como `string`, você pode fazer isso utilizando `<![CDATA[` + {XMLRequest} + `]]>.`
 
 ### Como assinar o XML Requisição
+#### Assinando certificado TLS 
+#### Assinando MensagemXML
+## Documentation
+
+Neste link você encontra: 
+- Manual de Utilização do Webservice de NFS-e
+- NFS-e – Reforma tributária 2026 (serviços síncronos e assíncronos) – Atualizado em 04/11/2025!
+[Documentação (Manual) e Models (Structs) WebService Nota Fiscal Paulistana (Antiga Nota do Milhão)](https://notadomilhao.sf.prefeitura.sp.gov.br/desenvolvedor/)
+## License
+
+[CC BY-NC](https://creativecommons.org/licenses/by-nc/4.0/legalcode)
+
