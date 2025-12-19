@@ -1,0 +1,10 @@
+<p1:PedidoConsultaNFePeriodo xmlns:p1="http://www.prefeitura.sp.gov.br/nfe">
+  <Cabecalho Versao="1">
+    <CPFCNPJRemetente><CNPJ>{CNPJ_REMETENTE}</CNPJ></CPFCNPJRemetente>
+    <CPFCNPJ><CNPJ>{CNPJ}</CNPJ></CPFCNPJ>
+    <Inscricao>{IE}</Inscricao>
+    <dtInicio>{DT_INICIO}</dtInicio>
+    <dtFim>{DT_FIM}</dtFim>
+    <NumeroPagina>{NUMERO_PAGINA}</NumeroPagina>
+  </Cabecalho>
+</p1:PedidoConsultaNFePeriodo>

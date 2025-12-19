@@ -49,7 +49,7 @@ Vamos começar pela formatação da requisição,a nota fiscal paulistana aceita
 2. Na requisição você precisará declarar também no header o tipo que esta enviando, e a ação que espera que o servidor realize com os dados que enviou para ele. Portanto header fica assim: `Content-Type:text/xml; charset=utf-8; action={CONSULTA/EMISSÃO/CANCELAMENTO}`.
 
 #### SOAP 1.2
-1. Declare a `xmlns:soap="http://www.w3.org/2003/05/soap-envelope"` no elemento raiz `<Envelope>` para especificar o namespace do protocolo SOAP 1.1 e garantir que o servidor interprete corretamente a estrutura da mensagem XML. O namespace é essencial para padronizar a comunicação e evitar conflitos de nomes de elementos no documento XML.
+1. Declare a `xmlns:soap="http://www.w3.org/2003/05/soap-envelope"` no elemento raiz `<Envelope>` para especificar o namespace do protocolo SOAP 1.2 e garantir que o servidor interprete corretamente a estrutura da mensagem XML. O namespace é essencial para padronizar a comunicação e evitar conflitos de nomes de elementos no documento XML.
 2. Na requisição você precisará declarar também no header o tipo que esta enviando, e a ação que espera que o servidor realize com os dados que enviou para ele. Portanto header fica assim: `Content-Type:application/soap+xml; charset=utf-8; action={CONSULTA/EMISSÃO/CANCELAMENTO}`.
 
 #### Exemplo
@@ -59,7 +59,7 @@ Vamos começar pela formatação da requisição,a nota fiscal paulistana aceita
 Eu também não sei, pedi para a IA me responder isso e deu certo.
 
 ### Como criar um corpo de mensagem para solicitar algo ao servidor
-Vamos começar entendendo o que precisará ser enviado, será um envelope XML com outro XML encapsulado dentro dele. Por mais estranho que pareça, esta é uma prática comum de arquitetura, isso ocorre porque vamos transportar uma mensagem que original que não pode ser alterada, por isso ela é encapsulada dentro de uma estrutura maior, o envelope transporta metadados como, remetende, data, tipo de conteúdo, enquanto a mensagem possui apenas 2 informações, a requisição e a assinatura de quem esta pedindo, é uma autentificação que garante que quem enviou foi o próprio solicitante.
+Vamos começar entendendo o que precisará ser enviado, será um envelope XML com outro XML encapsulado dentro dele. Por mais estranho que pareça, esta é uma prática comum de arquitetura, isso ocorre porque vamos transportar uma mensagem que é "original" que não pode ser alterada, por isso ela é encapsulada dentro de uma estrutura maior, o envelope transporta metadados como, remetende, data, tipo de conteúdo, enquanto a mensagem possui apenas 2 informações, a requisição e a assinatura de quem esta pedindo, é uma autentificação que garante que quem enviou foi o próprio solicitante.
 Portanto vamos nomear esses 2 XML como:
 - XML Envelope
 - XML Requisição
@@ -83,6 +83,18 @@ Com certeza existe uma maneira de ler esses schemas, as quais eu admito que não
 Dentro do envelope haverá uma TAG `<MensagemXML></MensagemXML>` dentro dela você precisará colocar esse xml que você criou, mas como `string`, você pode fazer isso utilizando `<![CDATA[` + {XMLRequest} + `]]>.`
 
 ### Como assinar o XML Requisição
+#### Objetos da chave PEM que devem estar na requisição
+- `<KeyValue>`
+- `<RSAKeyValue>`
+- `<Modulus>`
+- `<Exponent>`
+
+#### Objetos da chave PEM que NÃO devem estar na requisição
+- `<X509SubjectName>`
+- `<X509IssuerSerial>`
+- `<X509IssuerName>`
+- `<X509SerialNumber>`
+- `<X509SKI>`
 #### Assinando certificado TLS 
 #### Assinando MensagemXML
 ## Documentation

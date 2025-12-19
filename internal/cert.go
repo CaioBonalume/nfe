@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/pkcs12"
 )
 
-func ExportPEM() ([]byte, []byte, error) {
+func ExportPEM() (certPEM []byte, keyPEM []byte, err error) {
 	fmt.Println("Exportando certificado PFX para PEM...")
 	// 1. Ler o arquivo PFX do disco
 	// log.Printf("path: %s", config.Env.CERT_PATH)
@@ -72,9 +72,6 @@ func TLSCert() (tlsCert tls.Certificate, certPEM []byte, keyPEM []byte, err erro
 }
 
 // SignBlock assina um arquivo XML (ou string XML) injetando a assinatura DSIG
-// Este exemplo assume que você quer assinar o conteúdo inteiro ou uma tag específica.
-// Para SP (ConsultaCNPJ), a assinatura é "Enveloped", ou seja, ela vai DENTRO do XML,
-// mas assinando o elemento pai.
 func SignBlock(xmlContent string, keyPEM []byte, certPEM []byte) (string, error) {
 	// 1. Calcular o Digest do Payload (SHA1)
 	// Como estamos usando Enveloped Signature, o digest é calculado sobre o conteúdo ORIGINAL (sem a assinatura).
@@ -84,13 +81,11 @@ func SignBlock(xmlContent string, keyPEM []byte, certPEM []byte) (string, error)
 
 	// 2. Definir os Templates do SignedInfo
 
-	// A) Template para CÁLCULO DO HASH (Matemática)
-	// CORREÇÃO CRÍTICA: Adicionamos 'xmlns:p1' aqui.
+	// 2.1 Template para CÁLCULO DO HASH (Matemática)
 	// O C14N Inclusivo exige que o SignedInfo herde os namespaces do pai (p1) e declare o seu próprio (ds).
-	// A ordem alfabética dos atributos xmlns é obrigatória: 'ds' vem antes de 'p1'.
 	signedInfoTemplateHash := `<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:p1="http://www.prefeitura.sp.gov.br/nfe"><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></ds:SignatureMethod><ds:Reference URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></ds:Transform><ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></ds:DigestMethod><ds:DigestValue>%s</ds:DigestValue></ds:Reference></ds:SignedInfo>`
 
-	// B) Template para TRANSPORTE (O que vai no XML)
+	// 2.2 Template para TRANSPORTE (O que vai no XML)
 	// Aqui NÃO colocamos os namespaces, pois eles já existem no XML onde esse bloco será colado.
 	signedInfoTemplateTransport := `<ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></ds:SignatureMethod><ds:Reference URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></ds:Transform><ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></ds:DigestMethod><ds:DigestValue>%s</ds:DigestValue></ds:Reference></ds:SignedInfo>`
 
@@ -138,4 +133,57 @@ func SignBlock(xmlContent string, keyPEM []byte, certPEM []byte) (string, error)
 		stringParaTransporte, signatureValue, certBase64)
 
 	return finalSignature, nil
+}
+
+func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador string, issRetido bool, keyPEM []byte) (string, error) {
+	// 1. Formatação
+	ccmFmt := fmt.Sprintf("%08s", ccm)
+	serieFmt := fmt.Sprintf("%-5.5s", serie)
+	numeroFmt := fmt.Sprintf("%012s", numeroRPS)
+	dataFmt := strings.ReplaceAll(dataEmissao, "-", "")
+	tribFmt := tributacao
+	statusFmt := status
+	valorFmt := fmt.Sprintf("%015s", valorStr)
+	// 19.12.25
+	// ATENÇÃO O SISTEMA COLOCA OS CENTAVOS COMO ZERO SOZINHO!!! REVER ESTA PARTE
+	log.Printf("Valor formatado para assinatura RPS: %s", valorFmt)
+	deducoesFmt := fmt.Sprintf("%015s", deducoesStr)
+	codServFmt := fmt.Sprintf("%05s", codServico)
+	cpfCNPJ := "2"
+	if len(cnpjTomador) == 11 {
+		cpfCNPJ = "1"
+	}
+	tomadorFmt := fmt.Sprintf("%014s", cnpjTomador)
+	var issFmt string
+	if issRetido {
+		issFmt = "S"
+	} else {
+		issFmt = "N"
+	}
+
+	rawString := ccmFmt + serieFmt + numeroFmt + dataFmt + tribFmt + statusFmt + issFmt + valorFmt + deducoesFmt + codServFmt + cpfCNPJ + tomadorFmt
+	// Check-in
+	// log.Printf("String para Assinatura RPS: %s", rawString)
+
+	// Calcular o Hash SHA1 da string concatenada
+	hasher := sha1.New()
+	hasher.Write([]byte(rawString))
+	hashed := hasher.Sum(nil)
+
+	block, _ := pem.Decode(keyPEM)
+	if block == nil {
+		return "", fmt.Errorf("chave privada invalida")
+	}
+	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("erro parse rsa: %v", err)
+	}
+
+	sigBytes, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA1, hashed)
+	if err != nil {
+		return "", fmt.Errorf("erro assinatura: %v", err)
+	}
+
+	// O padrão SOAP é Base64.
+	return base64.StdEncoding.EncodeToString(sigBytes), nil
 }

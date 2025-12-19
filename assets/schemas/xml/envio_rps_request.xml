@@ -1,0 +1,33 @@
+<p1:PedidoEnvioRPS xmlns:p1="http://www.prefeitura.sp.gov.br/nfe">
+  <Cabecalho Versao="1">
+    <CPFCNPJRemetente>
+      <CNPJ>{REMETENTE}</CNPJ>
+    </CPFCNPJRemetente>
+  </Cabecalho>
+  <RPS>
+    <Assinatura>{HASH_RPS}</Assinatura> 
+    
+    <ChaveRPS>
+      <InscricaoPrestador>{IE}</InscricaoPrestador> <SerieRPS>{SERIE_RPS}</SerieRPS> <NumeroRPS>{NUMERO_RPS}</NumeroRPS>
+    </ChaveRPS>
+    
+    <TipoRPS>RPS</TipoRPS>
+    <DataEmissao>{DATA_EMISSAO}</DataEmissao>
+    <StatusRPS>N</StatusRPS>
+    <TributacaoRPS>T</TributacaoRPS>
+    <ValorServicos>{VALOR_SERVICO}</ValorServicos>
+    <ValorDeducoes>{VALOR_DEDUCOES}</ValorDeducoes>
+    <ValorPIS>{VALOR_PIS}</ValorPIS>
+    <ValorCOFINS>{VALOR_COFINS}</ValorCOFINS>
+    <ValorINSS>{VALOR_INSS}</ValorINSS>
+    <ValorIR>{VALOR_IR}</ValorIR>
+    <ValorCSLL>{VALOR_CSLL}</ValorCSLL>
+    <CodigoServico>{COD_SERVICO}</CodigoServico>
+    <AliquotaServicos>{ALIQUOTA}</AliquotaServicos>
+    <ISSRetido>{ISS}</ISSRetido>
+    <CPFCNPJTomador><CNPJ>{TOMADOR}</CNPJ> </CPFCNPJTomador>
+    
+    <Discriminacao>{DISCRIMINACAO}</Discriminacao>
+  </RPS>
+  
+  </p1:PedidoEnvioRPS>

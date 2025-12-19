@@ -1,0 +1,10 @@
+<p1:PedidoConsultaCNPJ xmlns:p1="http://www.prefeitura.sp.gov.br/nfe">
+    <Cabecalho Versao="1">
+        <CPFCNPJRemetente>
+            <CNPJ>{REMETENTE}</CNPJ>
+        </CPFCNPJRemetente>
+    </Cabecalho>
+    <CNPJContribuinte>
+        <CNPJ>{TOMADOR}</CNPJ>
+    </CNPJContribuinte>
+</p1:PedidoConsultaCNPJ>
