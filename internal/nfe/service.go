@@ -10,7 +10,7 @@ type NFEServiceInterface interface {
 	ConsultaCNPJ(remetente, tomador string) (string, error)
 	ConsultaNFePeriodo(request ConsultaNFERequest) ([]ConsultaNFEResponse, error)
 	EmissaoRPS(request RPSRequest) (string, error)
-	EmissaoLoteRPS(requests []RPSRequest) (*RetornoEnvioLoteRPS, error)
+	EmissaoLoteRPS(requests []RPSRequest) (any, error)
 	CancelarNFe(request CancelarNFeRequest) (string, error)
 	CancelarLoteNFe(requests []CancelarNFeRequest) (string, error)
 }
@@ -49,7 +49,7 @@ func (s *nfeService) EmissaoRPS(request RPSRequest) (string, error) {
 	return body, nil
 }
 
-func (s *nfeService) EmissaoLoteRPS(requests []RPSRequest) (*RetornoEnvioLoteRPS, error) {
+func (s *nfeService) EmissaoLoteRPS(requests []RPSRequest) (any, error) {
 	_, body, err := EmissaoLoteRPS_V1(requests)
 	if err != nil {
 		return nil, err
@@ -58,13 +58,23 @@ func (s *nfeService) EmissaoLoteRPS(requests []RPSRequest) (*RetornoEnvioLoteRPS
 	startIdx := strings.Index(body, "<RetornoEnvioLoteRPS")
 	endIdx := strings.Index(body, "</RetornoEnvioLoteRPS>")
 	if startIdx == -1 || endIdx == -1 {
-		return nil, fmt.Errorf("tag RetornoEnvioLoteRPS não encontrada na resposta")
+		return map[string]string{"resposta": body}, fmt.Errorf("tag RetornoEnvioLoteRPS não encontrada na resposta")
 	}
 
 	xmlData := body[startIdx : endIdx+len("</RetornoEnvioLoteRPS>")]
 	var retorno RetornoEnvioLoteRPS
 	if err := xml.Unmarshal([]byte(xmlData), &retorno); err != nil {
-		return nil, fmt.Errorf("erro ao decodificar XML da resposta: %v", err)
+		return map[string]string{"resposta": body}, fmt.Errorf("erro ao decodificar XML da resposta: %v", err)
+	}
+
+	if !retorno.Cabecalho.Sucesso {
+		if len(retorno.Erros) > 0 {
+			return map[string]any{
+				"status_operacao": false,
+				"erros":           retorno.Erros,
+			}, fmt.Errorf("lote rps rejeitado")
+		}
+		return map[string]string{"resposta": body}, fmt.Errorf("lote rps rejeitado")
 	}
 
 	return &retorno, nil

@@ -8,7 +8,7 @@
     <Assinatura>{HASH_RPS}</Assinatura>
 
     <ChaveRPS>
-      <InscricaoPrestador>{IE}</InscricaoPrestador>
+      <InscricaoPrestador>{IM}</InscricaoPrestador>
       <SerieRPS>{SERIE_RPS}</SerieRPS>
       <NumeroRPS>{NUMERO_RPS}</NumeroRPS>
     </ChaveRPS>

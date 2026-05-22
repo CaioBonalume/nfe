@@ -5,7 +5,7 @@ import "time"
 type RPSRequest struct {
 	Remetente     string
 	Tomador       string
-	IE            int
+	IM            int
 	SerieRPS      string // opcional, use "" para padrão
 	NumeroRPS     int
 	DtEmissao     time.Time
@@ -49,9 +49,15 @@ type ChaveNFeRPS struct {
 	ChaveRPS ChaveRPS `xml:"ChaveRPS" json:"chave_rps"`
 }
 
+type ErroRetorno struct {
+	Codigo    string `xml:"Codigo" json:"codigo"`
+	Descricao string `xml:"Descricao" json:"descricao"`
+}
+
 type RetornoEnvioLoteRPS struct {
 	XMLName      struct{}      `xml:"RetornoEnvioLoteRPS"`
 	Cabecalho    CabecalhoLote `xml:"Cabecalho" json:"cabecalho"`
 	Alertas      []Alerta      `xml:"Alerta" json:"alertas,omitempty"`
+	Erros        []ErroRetorno `xml:"Erro" json:"erros,omitempty"`
 	ChavesNFeRPS []ChaveNFeRPS `xml:"ChaveNFeRPS" json:"chaves_nfe_rps,omitempty"`
 }

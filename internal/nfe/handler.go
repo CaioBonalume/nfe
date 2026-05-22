@@ -69,7 +69,7 @@ func (h *nfeHandler) ConsultaNFePeriodo(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		CNPJRemetente string `json:"cnpj_remetente"`
 		CNPJ          string `json:"cnpj"`
-		IE            string `json:"ie"`
+		IM            string `json:"im"`
 		DTInicio      string `json:"dt_inicio"` // YYYY-MM-DD
 		DTFim         string `json:"dt_fim"`    // YYYY-MM-DD
 		Pagina        int    `json:"pagina"`
@@ -100,7 +100,7 @@ func (h *nfeHandler) ConsultaNFePeriodo(w http.ResponseWriter, r *http.Request) 
 	nfeReq := ConsultaNFERequest{
 		CNPJ_REMETENTE: req.CNPJRemetente,
 		CNPJ:           req.CNPJ,
-		IE:             req.IE,
+		IM:             req.IM,
 		DTInicio:       dtInicio,
 		DTFim:          dtFim,
 		Pagina:         pagina,
@@ -160,6 +160,10 @@ func (h *nfeHandler) EmissaoLoteRPS_V1(w http.ResponseWriter, r *http.Request) {
 
 	body, err := h.nfeService.EmissaoLoteRPS(requests)
 	if err != nil {
+		if body != nil {
+			writeJSON(w, http.StatusBadRequest, body)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

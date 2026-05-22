@@ -6,7 +6,7 @@
     <CPFCNPJ>
       <CNPJ>{CNPJ}</CNPJ>
     </CPFCNPJ>
-    <Inscricao>{IE}</Inscricao>
+    <Inscricao>{IM}</Inscricao>
     <dtInicio>{DT_INICIO}</dtInicio>
     <dtFim>{DT_FIM}</dtFim>
     <NumeroPagina>{NUMERO_PAGINA}</NumeroPagina>

@@ -139,7 +139,7 @@ func ConsultaNFePeriodo(request ConsultaNFERequest) (status, body string) {
 
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{CNPJ_REMETENTE}", request.CNPJ_REMETENTE, 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{CNPJ}", request.CNPJ, 1)
-	xmlMSGStr = strings.Replace(xmlMSGStr, "{IE}", request.IE, 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{IM}", request.IM, 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DT_INICIO}", request.DTInicio.Format("2006-01-02"), 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DT_FIM}", request.DTFim.Format("2006-01-02"), 1)
 	if request.Pagina < 1 {
@@ -327,7 +327,7 @@ func lastRPSNumber(request RPSRequest) (int, error) {
 	consultRequest := ConsultaNFERequest{
 		CNPJ_REMETENTE: request.Remetente,
 		CNPJ:           request.Remetente,
-		IE:             strconv.Itoa(request.IE),
+		IM:             strconv.Itoa(request.IM),
 		DTInicio:       time.Now().AddDate(0, 0, -30),
 		DTFim:          time.Now(),
 		Pagina:         1,
@@ -395,8 +395,8 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 		request.Tributacao = "T"
 	}
 
-	IE := strconv.Itoa(request.IE)
-	xmlMSGStr = strings.Replace(xmlMSGStr, "{IE}", IE, 1)
+	IM := strconv.Itoa(request.IM)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{IM}", IM, 1)
 
 	if request.SerieRPS == "" {
 		request.SerieRPS = "NFBON"
@@ -418,7 +418,7 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DISCRIMINACAO}", request.Discriminacao, 1)
 	// ASSINATURA RPS
 	hashRPS, _ := security.SignRPS(
-		strconv.Itoa(request.IE),
+		strconv.Itoa(request.IM),
 		request.SerieRPS,
 		strconv.Itoa(request.NumeroRPS),
 		request.DtEmissao.Format("2006-01-02"),
