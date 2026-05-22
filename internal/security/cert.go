@@ -1,4 +1,4 @@
-package internal
+package security
 
 import (
 	"crypto"
@@ -18,18 +18,18 @@ import (
 	"golang.org/x/crypto/pkcs12"
 )
 
-func ExportPEM() (certPEM []byte, keyPEM []byte, err error) {
+func ExportPEM(certPath, certPass string) (certPEM []byte, keyPEM []byte, err error) {
 	fmt.Println("Exportando certificado PFX para PEM...")
 	// 1. Ler o arquivo PFX do disco
 	// log.Printf("path: %s", config.Env.CERT_PATH)
-	pfxData, err := os.ReadFile(config.Env.CERT_PATH)
+	pfxData, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("erro ao ler arquivo PFX: %v", err)
 	}
 
 	// 2. Converter TODO o conteúdo do PFX para blocos PEM
 	// A função ToPEM não reclama se tiverem 3, 4 ou 10 itens dentro do PFX (Cadeia completa)
-	blocks, err := pkcs12.ToPEM(pfxData, config.Env.CERT_PASS)
+	blocks, err := pkcs12.ToPEM(pfxData, certPass)
 	if err != nil {
 		return nil, nil, fmt.Errorf("erro ao converter PFX para PEM (senha incorreta?): %v", err)
 	}
@@ -59,7 +59,7 @@ func ExportPEM() (certPEM []byte, keyPEM []byte, err error) {
 }
 
 func TLSCert() (tlsCert tls.Certificate, certPEM []byte, keyPEM []byte, err error) {
-	cert, key, err := ExportPEM()
+	cert, key, err := ExportPEM(config.Env.CERT_PATH, config.Env.CERT_PASS)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -185,5 +185,35 @@ func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, d
 	}
 
 	// O padrão SOAP é Base64.
+	return base64.StdEncoding.EncodeToString(sigBytes), nil
+}
+
+func SignCancelamento(ccm, numeroNFe string, keyPEM []byte) (string, error) {
+	// Formatação para tpAssinaturaCancelamento
+	// CCM com 8 posições completado com zeros à esquerda
+	ccmFmt := fmt.Sprintf("%08s", ccm)
+	// NumeroNFe com 12 posições completado com zeros à esquerda
+	numeroFmt := fmt.Sprintf("%012s", numeroNFe)
+
+	rawString := ccmFmt + numeroFmt
+
+	hasher := sha1.New()
+	hasher.Write([]byte(rawString))
+	hashed := hasher.Sum(nil)
+
+	block, _ := pem.Decode(keyPEM)
+	if block == nil {
+		return "", fmt.Errorf("chave privada invalida")
+	}
+	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("erro parse rsa: %v", err)
+	}
+
+	sigBytes, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA1, hashed)
+	if err != nil {
+		return "", fmt.Errorf("erro assinatura cancelamento: %v", err)
+	}
+
 	return base64.StdEncoding.EncodeToString(sigBytes), nil
 }

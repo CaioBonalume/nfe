@@ -1,0 +1,9 @@
+<p1:PedidoCancelamentoNFe xmlns:p1="http://www.prefeitura.sp.gov.br/nfe">
+  <Cabecalho Versao="1">
+    <CPFCNPJRemetente>
+      <CNPJ>{REMETENTE}</CNPJ>
+    </CPFCNPJRemetente>
+    <transacao>true</transacao>
+  </Cabecalho>
+  {DETALHE_LIST}
+</p1:PedidoCancelamentoNFe>

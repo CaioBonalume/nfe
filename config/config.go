@@ -15,7 +15,7 @@ type env struct {
 var Env env
 
 func LoadEnv() {
-	err := godotenv.Load("../../.env")
+	err := godotenv.Load("../.env")
 	if err != nil {
 		log.Printf("Error loading .env file: %v", err)
 	}

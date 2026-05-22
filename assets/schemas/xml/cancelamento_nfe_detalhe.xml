@@ -1,0 +1,8 @@
+  <Detalhe>
+    <ChaveNFe>
+      <InscricaoPrestador>{INSCRICAO_PRESTADOR}</InscricaoPrestador>
+      <NumeroNFe>{NUMERO_NFE}</NumeroNFe>
+      <CodigoVerificacao>{CODIGO_VERIFICACAO}</CodigoVerificacao>
+    </ChaveNFe>
+    <AssinaturaCancelamento>{ASSINATURA_CANCELAMENTO}</AssinaturaCancelamento>
+  </Detalhe>

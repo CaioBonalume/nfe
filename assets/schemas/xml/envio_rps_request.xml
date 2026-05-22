@@ -5,12 +5,14 @@
     </CPFCNPJRemetente>
   </Cabecalho>
   <RPS>
-    <Assinatura>{HASH_RPS}</Assinatura> 
-    
+    <Assinatura>{HASH_RPS}</Assinatura>
+
     <ChaveRPS>
-      <InscricaoPrestador>{IE}</InscricaoPrestador> <SerieRPS>{SERIE_RPS}</SerieRPS> <NumeroRPS>{NUMERO_RPS}</NumeroRPS>
+      <InscricaoPrestador>{IE}</InscricaoPrestador>
+      <SerieRPS>{SERIE_RPS}</SerieRPS>
+      <NumeroRPS>{NUMERO_RPS}</NumeroRPS>
     </ChaveRPS>
-    
+
     <TipoRPS>RPS</TipoRPS>
     <DataEmissao>{DATA_EMISSAO}</DataEmissao>
     <StatusRPS>N</StatusRPS>
@@ -25,9 +27,11 @@
     <CodigoServico>{COD_SERVICO}</CodigoServico>
     <AliquotaServicos>{ALIQUOTA}</AliquotaServicos>
     <ISSRetido>{ISS}</ISSRetido>
-    <CPFCNPJTomador><CNPJ>{TOMADOR}</CNPJ> </CPFCNPJTomador>
-    
+    <CPFCNPJTomador>
+      <CNPJ>{TOMADOR}</CNPJ>
+    </CPFCNPJTomador>
+
     <Discriminacao>{DISCRIMINACAO}</Discriminacao>
   </RPS>
-  
-  </p1:PedidoEnvioRPS>
+
+</p1:PedidoEnvioRPS>

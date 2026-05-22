@@ -1,0 +1,12 @@
+<p1:PedidoEnvioLoteRPS xmlns:p1="http://www.prefeitura.sp.gov.br/nfe">
+  <Cabecalho Versao="1">
+    <CPFCNPJRemetente>
+      <CNPJ>{REMETENTE}</CNPJ>
+    </CPFCNPJRemetente>
+    <transacao>true</transacao>
+    <dtInicio>{DT_INICIO}</dtInicio>
+    <dtFim>{DT_FIM}</dtFim>
+    <QtdRPS>{QTD_RPS}</QtdRPS>
+    <ValorTotalServicos>{VALOR_TOTAL}</ValorTotalServicos>
+    <ValorTotalDeducoes>{VALOR_DEDUCOES}</ValorTotalDeducoes>
+  </Cabecalho> {RPS_LIST} </p1:PedidoEnvioLoteRPS>

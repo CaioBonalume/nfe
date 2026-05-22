@@ -101,7 +101,7 @@ Dentro do envelope haverá uma TAG `<MensagemXML></MensagemXML>` dentro dela voc
 
 Neste link você encontra: 
 - Manual de Utilização do Webservice de NFS-e
-- NFS-e – Reforma tributária 2026 (serviços síncronos e assíncronos) – Atualizado em 04/11/2025!
+- NFS-e – Reforma tributária 2026 (serviços síncronos e assíncronos) – Atualizado em 09/01/2026
 [Documentação (Manual) e Models (Structs) WebService Nota Fiscal Paulistana (Antiga Nota do Milhão)](https://notadomilhao.sf.prefeitura.sp.gov.br/desenvolvedor/)
 ## License
 
