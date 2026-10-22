@@ -27,9 +27,7 @@
     <CodigoServico>{COD_SERVICO}</CodigoServico>
     <AliquotaServicos>{ALIQUOTA}</AliquotaServicos>
     <ISSRetido>{ISS}</ISSRetido>
-    <CPFCNPJTomador>
-      <CNPJ>{TOMADOR}</CNPJ>
-    </CPFCNPJTomador>
+    {CPFCNPJ_TOMADOR}
     {ENDERECO_TOMADOR}
 
     <Discriminacao>{DISCRIMINACAO}</Discriminacao>

@@ -415,7 +415,28 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{ALIQUOTA}", fmt.Sprintf("%.2f", request.Aliquota), 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{COD_SERVICO}", request.CodServico, 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{ISS}", fmt.Sprintf("%t", request.ISS), 1)
-	xmlMSGStr = strings.Replace(xmlMSGStr, "{TOMADOR}", request.Tomador, 1)
+	tipoDoc, docXML, _ := security.DetectTomadorDoc(request.Tomador)
+	var cpfCnpjBlock string
+	switch tipoDoc {
+	case "1":
+		cpfCnpjBlock = fmt.Sprintf("<CPFCNPJTomador><CPF>%s</CPF></CPFCNPJTomador>", docXML)
+	case "2":
+		cpfCnpjBlock = fmt.Sprintf("<CPFCNPJTomador><CNPJ>%s</CNPJ></CPFCNPJTomador>", docXML)
+	default:
+		cpfCnpjBlock = ""
+	}
+
+	if strings.Contains(xmlMSGStr, "{CPFCNPJ_TOMADOR}") {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{CPFCNPJ_TOMADOR}", cpfCnpjBlock, 1)
+	} else if strings.Contains(xmlMSGStr, "{TOMADOR}") {
+		if idx := strings.Index(xmlMSGStr, "<CPFCNPJTomador>"); idx != -1 {
+			if endIdx := strings.Index(xmlMSGStr[idx:], "</CPFCNPJTomador>"); endIdx != -1 {
+				xmlMSGStr = xmlMSGStr[:idx] + cpfCnpjBlock + xmlMSGStr[idx+endIdx+len("</CPFCNPJTomador>"):]
+			}
+		} else {
+			xmlMSGStr = strings.Replace(xmlMSGStr, "{TOMADOR}", docXML, 1)
+		}
+	}
 	if request.TomadorCidade != "" || request.TomadorLogradouro != "" {
 		var endBlocks []string
 		if request.TomadorTipoLogradouro != "" {

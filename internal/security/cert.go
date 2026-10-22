@@ -204,11 +204,8 @@ func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, d
 	log.Printf("Valor formatado para assinatura RPS: %s", valorFmt)
 	deducoesFmt := fmt.Sprintf("%015s", deducoesStr)
 	codServFmt := fmt.Sprintf("%05s", codServico)
-	cpfCNPJ := "2"
-	if len(cnpjTomador) == 11 {
-		cpfCNPJ = "1"
-	}
-	tomadorFmt := fmt.Sprintf("%014s", cnpjTomador)
+	tipoDoc, _, tomadorFmt := DetectTomadorDoc(cnpjTomador)
+	cpfCNPJ := tipoDoc
 	var issFmt string
 	if issRetido {
 		issFmt = "S"
