@@ -1,6 +1,7 @@
 package security
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -13,25 +14,84 @@ import (
 	"log"
 	"nfe/config"
 	"os"
+	"os/exec"
 	"strings"
 
 	"golang.org/x/crypto/pkcs12"
 )
 
+// parseRSAPrivateKey tenta decodificar a chave privada tanto em formato PKCS#1 quanto PKCS#8
+func parseRSAPrivateKey(keyPEM []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(keyPEM)
+	if block == nil {
+		return nil, fmt.Errorf("chave privada invalida")
+	}
+
+	// 1. Tentar formato PKCS#1 (RSA PRIVATE KEY)
+	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return key, nil
+	}
+
+	// 2. Tentar formato PKCS#8 (PRIVATE KEY)
+	if keyInterface, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		if rsaKey, ok := keyInterface.(*rsa.PrivateKey); ok {
+			return rsaKey, nil
+		}
+		return nil, fmt.Errorf("chave privada nao e do tipo RSA")
+	}
+
+	return nil, fmt.Errorf("falha ao interpretar chave privada (nem PKCS#1 nem PKCS#8)")
+}
+
+// extractPEMWithOpenSSL atua como fallback caso a biblioteca pura em Go falhe
+// ao lidar com codificações BER (indefinite length) ou algoritmos legados do PFX.
+func extractPEMWithOpenSSL(certPath, certPass string) ([]*pem.Block, error) {
+	cmd := exec.Command("openssl", "pkcs12", "-in", certPath, "-nodes", "-passin", "pass:"+certPass, "-legacy")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		// Fallback sem -legacy (para OpenSSL 1.1 ou ambientes sem provider legacy)
+		cmd = exec.Command("openssl", "pkcs12", "-in", certPath, "-nodes", "-passin", "pass:"+certPass)
+		stdout.Reset()
+		stderr.Reset()
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		if err2 := cmd.Run(); err2 != nil {
+			return nil, fmt.Errorf("falha ao exportar via openssl: %v (detalhes: %s)", err, strings.TrimSpace(stderr.String()))
+		}
+	}
+
+	var blocks []*pem.Block
+	data := stdout.Bytes()
+	for {
+		block, rest := pem.Decode(data)
+		if block == nil {
+			break
+		}
+		blocks = append(blocks, block)
+		data = rest
+	}
+	return blocks, nil
+}
+
 func ExportPEM(certPath, certPass string) (certPEM []byte, keyPEM []byte, err error) {
 	fmt.Println("Exportando certificado PFX para PEM...")
 	// 1. Ler o arquivo PFX do disco
-	// log.Printf("path: %s", config.Env.CERT_PATH)
 	pfxData, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("erro ao ler arquivo PFX: %v", err)
 	}
 
-	// 2. Converter TODO o conteúdo do PFX para blocos PEM
-	// A função ToPEM não reclama se tiverem 3, 4 ou 10 itens dentro do PFX (Cadeia completa)
+	// 2. Tentar converter usando a biblioteca nativa pkcs12
 	blocks, err := pkcs12.ToPEM(pfxData, certPass)
 	if err != nil {
-		return nil, nil, fmt.Errorf("erro ao converter PFX para PEM (senha incorreta?): %v", err)
+		// Fallback para OpenSSL caso ocorra erro de ASN.1 BER (indefinite length) ou cifras legadas
+		log.Printf("Aviso: pkcs12 nativo falhou (%v). Tentando fallback com OpenSSL...", err)
+		blocks, err = extractPEMWithOpenSSL(certPath, certPass)
+		if err != nil {
+			return nil, nil, fmt.Errorf("erro ao converter PFX para PEM (senha incorreta?): %v", err)
+		}
 	}
 
 	var pemData []byte // Vai guardar todos os certificados (O seu + Cadeia)
@@ -93,12 +153,7 @@ func SignBlock(xmlContent string, keyPEM []byte, certPEM []byte) (string, error)
 	stringParaHash := fmt.Sprintf(signedInfoTemplateHash, digest)
 	stringParaTransporte := fmt.Sprintf(signedInfoTemplateTransport, digest)
 
-	// 3. Assinar a String de Hash (Essa contém os namespaces herdados)
-	block, _ := pem.Decode(keyPEM)
-	if block == nil {
-		return "", fmt.Errorf("chave privada invalida")
-	}
-	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	rsaKey, err := parseRSAPrivateKey(keyPEM)
 	if err != nil {
 		return "", fmt.Errorf("erro parse rsa: %v", err)
 	}
@@ -170,11 +225,7 @@ func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, d
 	hasher.Write([]byte(rawString))
 	hashed := hasher.Sum(nil)
 
-	block, _ := pem.Decode(keyPEM)
-	if block == nil {
-		return "", fmt.Errorf("chave privada invalida")
-	}
-	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	rsaKey, err := parseRSAPrivateKey(keyPEM)
 	if err != nil {
 		return "", fmt.Errorf("erro parse rsa: %v", err)
 	}
@@ -201,11 +252,7 @@ func SignCancelamento(ccm, numeroNFe string, keyPEM []byte) (string, error) {
 	hasher.Write([]byte(rawString))
 	hashed := hasher.Sum(nil)
 
-	block, _ := pem.Decode(keyPEM)
-	if block == nil {
-		return "", fmt.Errorf("chave privada invalida")
-	}
-	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	rsaKey, err := parseRSAPrivateKey(keyPEM)
 	if err != nil {
 		return "", fmt.Errorf("erro parse rsa: %v", err)
 	}

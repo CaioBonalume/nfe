@@ -30,6 +30,7 @@
     <CPFCNPJTomador>
       <CNPJ>{TOMADOR}</CNPJ>
     </CPFCNPJTomador>
+    {ENDERECO_TOMADOR}
 
     <Discriminacao>{DISCRIMINACAO}</Discriminacao>
   </RPS>

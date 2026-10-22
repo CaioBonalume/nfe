@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"nfe/internal/security"
 	"os"
@@ -415,6 +416,38 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{COD_SERVICO}", request.CodServico, 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{ISS}", fmt.Sprintf("%t", request.ISS), 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{TOMADOR}", request.Tomador, 1)
+	if request.TomadorCidade != "" || request.TomadorLogradouro != "" {
+		var endBlocks []string
+		if request.TomadorTipoLogradouro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<TipoLogradouro>%s</TipoLogradouro>", request.TomadorTipoLogradouro))
+		}
+		if request.TomadorLogradouro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Logradouro>%s</Logradouro>", request.TomadorLogradouro))
+		}
+		if request.TomadorNumero != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<NumeroEndereco>%s</NumeroEndereco>", request.TomadorNumero))
+		}
+		if request.TomadorComplemento != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<ComplementoEndereco>%s</ComplementoEndereco>", request.TomadorComplemento))
+		}
+		if request.TomadorBairro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Bairro>%s</Bairro>", request.TomadorBairro))
+		}
+		if request.TomadorCidade != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Cidade>%s</Cidade>", request.TomadorCidade))
+		}
+		if request.TomadorUF != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<UF>%s</UF>", request.TomadorUF))
+		}
+		if request.TomadorCEP != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<CEP>%s</CEP>", request.TomadorCEP))
+		}
+
+		enderecoTomador := fmt.Sprintf("<EnderecoTomador>%s</EnderecoTomador>", strings.Join(endBlocks, ""))
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{ENDERECO_TOMADOR}", enderecoTomador, 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{ENDERECO_TOMADOR}", "", 1)
+	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DISCRIMINACAO}", request.Discriminacao, 1)
 	// ASSINATURA RPS
 	hashRPS, _ := security.SignRPS(
@@ -424,8 +457,8 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 		request.DtEmissao.Format("2006-01-02"),
 		request.Tributacao,
 		"N",
-		fmt.Sprintf("%d", int(request.ValorServ*100)),
-		fmt.Sprintf("%d", int(request.ValorDeducoes*100)),
+		fmt.Sprintf("%d", int(math.Round(request.ValorServ*100))),
+		fmt.Sprintf("%d", int(math.Round(request.ValorDeducoes*100))),
 		request.CodServico,
 		request.Tomador,
 		request.ISS,

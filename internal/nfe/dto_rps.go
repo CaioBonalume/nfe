@@ -5,7 +5,15 @@ import "time"
 type RPSRequest struct {
 	Remetente     string
 	Tomador       string
-	IM            int
+	TomadorCidade       string // opcional (código IBGE 7 dígitos)
+	TomadorUF           string // opcional (sigla estado 2 letras)
+	TomadorTipoLogradouro string // opcional (Rua, Av, etc)
+	TomadorLogradouro   string // opcional
+	TomadorNumero       string // opcional
+	TomadorComplemento  string // opcional
+	TomadorBairro       string // opcional
+	TomadorCEP          string // opcional (8 dígitos)
+	IM                  int
 	SerieRPS      string // opcional, use "" para padrão
 	NumeroRPS     int
 	DtEmissao     time.Time
@@ -39,9 +47,11 @@ type CabecalhoLote struct {
 }
 
 type Alerta struct {
-	Codigo    int      `xml:"Codigo" json:"codigo"`
-	Descricao string   `xml:"Descricao" json:"descricao"`
-	ChaveRPS  ChaveRPS `xml:"ChaveRPS" json:"chave_rps"`
+	Codigo          int      `xml:"Codigo" json:"codigo"`
+	Descricao       string   `xml:"Descricao" json:"descricao"`
+	NumeroRPS       int      `xml:"-" json:"numero_rps"`
+	ChaveRPS        ChaveRPS `xml:"ChaveRPS" json:"chave_rps"`
+	DirectNumeroRPS int      `xml:"NumeroRPS" json:"-"`
 }
 
 type ChaveNFeRPS struct {
@@ -50,8 +60,11 @@ type ChaveNFeRPS struct {
 }
 
 type ErroRetorno struct {
-	Codigo    string `xml:"Codigo" json:"codigo"`
-	Descricao string `xml:"Descricao" json:"descricao"`
+	Codigo          string   `xml:"Codigo" json:"codigo"`
+	Descricao       string   `xml:"Descricao" json:"descricao"`
+	NumeroRPS       int      `xml:"-" json:"numero_rps"`
+	ChaveRPS        ChaveRPS `xml:"ChaveRPS" json:"chave_rps"`
+	DirectNumeroRPS int      `xml:"NumeroRPS" json:"-"`
 }
 
 type RetornoEnvioLoteRPS struct {
@@ -61,3 +74,10 @@ type RetornoEnvioLoteRPS struct {
 	Erros        []ErroRetorno `xml:"Erro" json:"erros,omitempty"`
 	ChavesNFeRPS []ChaveNFeRPS `xml:"ChaveNFeRPS" json:"chaves_nfe_rps,omitempty"`
 }
+
+type ErroAgrupado struct {
+	Codigo    string `json:"codigo"`
+	Descricao string `json:"descricao"`
+	RPS       []int  `json:"rps"`
+}
+
