@@ -13,12 +13,15 @@ func SetupRoutes(r chi.Router, h NFEHandler) {
 		r.Get("/consulta-periodo", h.ConsultaNFePeriodo)
 
 		// EMISSÃO
-		// RPS unitário
-		// POST /v1/nfe/emissao-rps  body: RPSRequest JSON
-		r.Post("/emissao-rps", h.EmissaoRPS_V1)
-		// lote de RPS
-		// POST /v1/nfe/emissao-lote-rps  body: []RPSRequest JSON
-		r.Post("/emissao-lote-rps", h.EmissaoLoteRPS_V1)
+		// RPS unitário (detecta leiaute via param/body ou exige especificação)
+		r.Post("/emissao-rps", h.EmissaoRPS)
+		r.Post("/emissao-rps/v1", h.EmissaoRPS_V1)
+		r.Post("/emissao-rps/v2", h.EmissaoRPS_V2)
+
+		// lote de RPS (aplica leiaute uniforme para todos os RPS do lote)
+		r.Post("/emissao-lote-rps", h.EmissaoLoteRPS)
+		r.Post("/emissao-lote-rps/v1", h.EmissaoLoteRPS_V1)
+		r.Post("/emissao-lote-rps/v2", h.EmissaoLoteRPS_V2)
 
 		// CANCELAR
 		// NFe unitário

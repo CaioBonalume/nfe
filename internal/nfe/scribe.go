@@ -31,6 +31,29 @@ func fixResponseXML(content string) string {
 	return content
 }
 
+func readSchemaFile(relPath string) ([]byte, error) {
+	clean := relPath
+	for strings.HasPrefix(clean, "../") {
+		clean = strings.TrimPrefix(clean, "../")
+	}
+
+	candidates := []string{
+		relPath,
+		clean,
+		"../" + clean,
+		"../../" + clean,
+		"../../../" + clean,
+	}
+
+	for _, cand := range candidates {
+		if data, err := os.ReadFile(cand); err == nil {
+			return data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("arquivo de schema nao encontrado: %s", relPath)
+}
+
 func newRequest(url, xmlFinal string, cert tls.Certificate, soap int, soapAction ...string) (*http.Response, error) {
 	// 1. Configurar o Cliente HTTP Seguro
 	tlsConfig := &tls.Config{
@@ -75,7 +98,7 @@ func newRequest(url, xmlFinal string, cert tls.Certificate, soap int, soapAction
 }
 
 func ConsultaCNPJ_V1(remetente, tomador string) (status, body string) {
-	xmlEnvelope, err := os.ReadFile("../assets/schemas/xml/requestModel_1.1.xml")
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -83,7 +106,7 @@ func ConsultaCNPJ_V1(remetente, tomador string) (status, body string) {
 	xmlEnvelopeStr = strings.ReplaceAll(xmlEnvelopeStr, "WRAPPER", "ConsultaCNPJRequest")
 
 	// CARTA ESCRITA
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/consulta_CNPJ_request.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/consulta_CNPJ_request.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -122,7 +145,7 @@ func ConsultaCNPJ_V1(remetente, tomador string) (status, body string) {
 }
 
 func ConsultaNFePeriodo(request ConsultaNFERequest) (status, body string) {
-	xmlEnvelope, err := os.ReadFile("../assets/schemas/xml/requestModel_1.1.xml")
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -132,7 +155,7 @@ func ConsultaNFePeriodo(request ConsultaNFERequest) (status, body string) {
 	xmlEnvelopeStr = strings.ReplaceAll(xmlEnvelopeStr, "WRAPPER", wrapper)
 
 	// CARTA ESCRITA
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/consulta_nfe_request.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/consulta_nfe_request.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -182,7 +205,7 @@ func ConsultaNFePeriodo(request ConsultaNFERequest) (status, body string) {
 }
 
 func EmissaoRPS_V1(request RPSRequest) (status, body string) {
-	xmlEnvelope, err := os.ReadFile("../assets/schemas/xml/requestModel_1.1.xml")
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -224,7 +247,7 @@ func EmissaoRPS_V1(request RPSRequest) (status, body string) {
 }
 
 func EmissaoLoteRPS_V1(requests []RPSRequest) (status, body string, err error) {
-	xmlEnvelope, err := os.ReadFile("../assets/schemas/xml/requestModel_1.1.xml")
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -235,7 +258,7 @@ func EmissaoLoteRPS_V1(requests []RPSRequest) (status, body string, err error) {
 	var tlsCert, certPEM, keyPEM, _ = security.TLSCert()
 
 	// CARTA ESCRITA
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/envio_lote_rps_request.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/envio_lote_rps_request.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -354,7 +377,7 @@ func lastRPSNumber(request RPSRequest) (int, error) {
 
 func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 	// CARTA ESCRITA
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/envio_rps_request.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/envio_rps_request.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler envio_rps_request.xml: %v", err)
 	}
@@ -495,7 +518,7 @@ func CancelarNFe(request CancelarNFeRequest) (status, body string) {
 }
 
 func CancelarLoteNFe(requests []CancelarNFeRequest) (status, body string) {
-	xmlEnvelope, err := os.ReadFile("../assets/schemas/xml/requestModel_1.1.xml")
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler arquivo XML: %v", err)
 	}
@@ -506,7 +529,7 @@ func CancelarLoteNFe(requests []CancelarNFeRequest) (status, body string) {
 	var tlsCert, certPEM, keyPEM, _ = security.TLSCert()
 
 	// CARTA ESCRITA
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/cancelamento_nfe_request.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/cancelamento_nfe_request.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler cancelamento_nfe_request.xml: %v", err)
 	}
@@ -548,7 +571,7 @@ func CancelarLoteNFe(requests []CancelarNFeRequest) (status, body string) {
 }
 
 func writeCancelamentoDetalhe(request CancelarNFeRequest, keyPEM []byte) string {
-	xmlMSG, err := os.ReadFile("../assets/schemas/xml/cancelamento_nfe_detalhe.xml")
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/cancelamento_nfe_detalhe.xml")
 	if err != nil {
 		log.Fatalf("Erro ao ler cancelamento_nfe_detalhe.xml: %v", err)
 	}
@@ -568,5 +591,337 @@ func writeCancelamentoDetalhe(request CancelarNFeRequest, keyPEM []byte) string 
 	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{ASSINATURA_CANCELAMENTO}", hashCancelamento, 1)
 
+	return xmlMSGStr
+}
+
+func EmissaoRPS_V2(request RPSRequestV2) (status, body string) {
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
+	if err != nil {
+		log.Fatalf("Erro ao ler arquivo XML: %v", err)
+	}
+	xmlEnvelopeStr := string(xmlEnvelope)
+
+	wrapper := "EnvioRPSRequest"
+	xmlEnvelopeStr = strings.ReplaceAll(xmlEnvelopeStr, "WRAPPER", wrapper)
+	xmlEnvelopeStr = strings.Replace(xmlEnvelopeStr, "<VersaoSchema>1</VersaoSchema>", "<VersaoSchema>2</VersaoSchema>", 1)
+
+	var tlsCert, certPEM, keyPEM, _ = security.TLSCert()
+
+	// CARTA ESCRITA
+	xmlMSGStr := writeRPSV2(request, keyPEM)
+
+	// CARTA ASSINADA
+	signatureBlock, _ := security.SignBlock(xmlMSGStr, keyPEM, certPEM)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "</p1:PedidoEnvioRPS>", signatureBlock+"</p1:PedidoEnvioRPS>", 1)
+
+	// CARTA ENVELOPADA
+	mail := strings.Replace(xmlEnvelopeStr, "{MSG}", xmlMSGStr, 1)
+	mail = xmlCleanup(mail)
+
+	url := "https://nfews.prefeitura.sp.gov.br/lotenfe.asmx?WSDL"
+	soapAction := "http://www.prefeitura.sp.gov.br/nfe/ws/EnvioRPS"
+
+	resp, err := newRequest(url, mail, tlsCert, 1, soapAction)
+	if err != nil {
+		log.Fatalf("Erro ao criar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody := new(bytes.Buffer)
+	_, err = respBody.ReadFrom(resp.Body)
+	if err != nil {
+		log.Fatalf("Erro ao ler corpo da resposta: %v", err)
+	}
+	respStr := fixResponseXML(respBody.String())
+
+	return resp.Status, respStr
+}
+
+func EmissaoLoteRPS_V2(requests []RPSRequestV2) (status, body string, err error) {
+	xmlEnvelope, err := readSchemaFile("../assets/schemas/xml/requestModel_1.1.xml")
+	if err != nil {
+		log.Fatalf("Erro ao ler arquivo XML: %v", err)
+	}
+	xmlEnvelopeStr := string(xmlEnvelope)
+	wrapper := "EnvioLoteRPSRequest"
+	xmlEnvelopeStr = strings.ReplaceAll(xmlEnvelopeStr, "WRAPPER", wrapper)
+	xmlEnvelopeStr = strings.Replace(xmlEnvelopeStr, "<VersaoSchema>1</VersaoSchema>", "<VersaoSchema>2</VersaoSchema>", 1)
+
+	var tlsCert, certPEM, keyPEM, _ = security.TLSCert()
+
+	// CARTA ESCRITA
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/envio_lote_rps_request_v2.xml")
+	if err != nil {
+		log.Fatalf("Erro ao ler arquivo XML: %v", err)
+	}
+	xmlMSGStr := string(xmlMSG)
+
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{REMETENTE}", requests[0].Remetente, 1)
+	min := requests[0].DtEmissao
+	max := requests[0].DtEmissao
+	for _, r := range requests[1:] {
+		if r.DtEmissao.Before(min) {
+			min = r.DtEmissao
+		}
+		if r.DtEmissao.After(max) {
+			max = r.DtEmissao
+		}
+	}
+	dtIniStr := min.Format("2006-01-02")
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{DT_INICIO}", dtIniStr, 1)
+	dtFimStr := max.Format("2006-01-02")
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{DT_FIM}", dtFimStr, 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{QTD_RPS}", strconv.Itoa(len(requests)), 1)
+
+	countComNumero := 0
+	for _, r := range requests {
+		if r.NumeroRPS != 0 {
+			countComNumero++
+		}
+	}
+
+	if countComNumero > 0 && countComNumero < len(requests) {
+		return "", "", fmt.Errorf("lote invalido: mistura de RPS com e sem NumeroRPS. Forneca todos ou nenhum para auto-preenchimento")
+	}
+
+	if countComNumero == 0 {
+		lastNum, err := lastRPSNumberV2(requests[0])
+		if err != nil {
+			return "", "", fmt.Errorf("erro ao consultar ultimo RPS: %v", err)
+		}
+		for i := range requests {
+			requests[i].NumeroRPS = lastNum + i + 1
+		}
+	}
+
+	rpsBlocks := ""
+	for _, r := range requests {
+		rpsBlock := writeRPSV2(r, keyPEM, true)
+		rpsBlocks += rpsBlock
+	}
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{RPS_LIST}", rpsBlocks, 1)
+	xmlMSGStr = xmlCleanup(xmlMSGStr)
+
+	// CARTA ASSINADA
+	signatureBlock, _ := security.SignBlock(xmlMSGStr, keyPEM, certPEM)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "</p1:PedidoEnvioLoteRPS>", signatureBlock+"</p1:PedidoEnvioLoteRPS>", 1)
+
+	// CARTA ENVELOPADA
+	mail := strings.Replace(xmlEnvelopeStr, "{MSG}", xmlMSGStr, 1)
+	mail = xmlCleanup(mail)
+
+	url := "https://nfews.prefeitura.sp.gov.br/lotenfe.asmx?WSDL"
+	soapAction := "http://www.prefeitura.sp.gov.br/nfe/ws/EnvioLoteRPS"
+
+	resp, err := newRequest(url, mail, tlsCert, 1, soapAction)
+	if err != nil {
+		log.Fatalf("Erro ao criar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody := new(bytes.Buffer)
+	_, err = respBody.ReadFrom(resp.Body)
+	if err != nil {
+		log.Fatalf("Erro ao ler corpo da resposta: %v", err)
+	}
+	respStr := fixResponseXML(respBody.String())
+
+	return resp.Status, respStr, nil
+}
+
+func lastRPSNumberV2(request RPSRequestV2) (int, error) {
+	valStr := ""
+	consultRequest := ConsultaNFERequest{
+		CNPJ_REMETENTE: request.Remetente,
+		CNPJ:           request.Remetente,
+		IM:             strconv.Itoa(request.IM),
+		DTInicio:       time.Now().AddDate(0, 0, -30),
+		DTFim:          time.Now(),
+		Pagina:         1,
+	}
+
+	_, consultBody := ConsultaNFePeriodo(consultRequest)
+	i := strings.LastIndex(consultBody, "<NumeroRPS>")
+	if i != -1 {
+		j := strings.Index(consultBody[i+len("<NumeroRPS>"):], "</NumeroRPS>")
+		if j != -1 {
+			valStr = consultBody[i+len("<NumeroRPS>") : i+len("<NumeroRPS>")+j]
+		}
+	} else {
+		return 0, fmt.Errorf("Não foi encontrado ultimo RPS emitido")
+	}
+
+	valInt, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, fmt.Errorf("Não foi encontrado ultimo RPS emitido")
+	}
+	return valInt, nil
+}
+
+func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string {
+	xmlMSG, err := readSchemaFile("../assets/schemas/xml/envio_rps_request_v2.xml")
+	if err != nil {
+		log.Fatalf("Erro ao ler envio_rps_request_v2.xml: %v", err)
+	}
+	xmlMSGStr := string(xmlMSG)
+	onlyRPS := false
+	if len(onlyRPSOpt) > 0 {
+		onlyRPS = onlyRPSOpt[0]
+	}
+
+	if !onlyRPS {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{REMETENTE}", request.Remetente, 1)
+	} else {
+		start := strings.Index(xmlMSGStr, "<RPS")
+		if start != -1 {
+			endRel := strings.Index(xmlMSGStr[start:], "</RPS>")
+			if endRel != -1 {
+				xmlMSGStr = xmlMSGStr[start : start+endRel+len("</RPS>")]
+			}
+		}
+	}
+
+	// NUMERO RPS
+	if request.NumeroRPS < 1 {
+		numRps, err := lastRPSNumberV2(request)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		request.NumeroRPS = numRps + 1
+	}
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{NUMERO_RPS}", strconv.Itoa(request.NumeroRPS), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{DATA_EMISSAO}", request.DtEmissao.Format("2006-01-02"), 1)
+
+	if request.Tributacao != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{TRIBUTACAO_RPS}", request.Tributacao, 1)
+	} else {
+		request.Tributacao = "T"
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{TRIBUTACAO_RPS}", "T", 1)
+	}
+
+	IM := strconv.Itoa(request.IM)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{IM}", IM, 1)
+
+	if request.SerieRPS == "" {
+		request.SerieRPS = "NFBON"
+	}
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{SERIE_RPS}", request.SerieRPS, 1)
+
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_DEDUCOES}", fmt.Sprintf("%.2f", request.ValorDeducoes), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_PIS}", fmt.Sprintf("%.2f", request.PIS), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_COFINS}", fmt.Sprintf("%.2f", request.COFINS), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_INSS}", fmt.Sprintf("%.2f", request.INSS), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_IR}", fmt.Sprintf("%.2f", request.IR), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_CSLL}", fmt.Sprintf("%.2f", request.CSLL), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{ALIQUOTA}", fmt.Sprintf("%.2f", request.Aliquota), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{COD_SERVICO}", request.CodServico, 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{ISS}", fmt.Sprintf("%t", request.ISS), 1)
+
+	tipoDoc, docXML, _ := security.DetectTomadorDoc(request.Tomador)
+	var cpfCnpjBlock string
+	switch tipoDoc {
+	case "1":
+		cpfCnpjBlock = fmt.Sprintf("<CPFCNPJTomador><CPF>%s</CPF></CPFCNPJTomador>", docXML)
+	case "2":
+		cpfCnpjBlock = fmt.Sprintf("<CPFCNPJTomador><CNPJ>%s</CNPJ></CPFCNPJTomador>", docXML)
+	default:
+		cpfCnpjBlock = ""
+	}
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{CPFCNPJ_TOMADOR}", cpfCnpjBlock, 1)
+
+	if request.TomadorCidade != "" || request.TomadorLogradouro != "" {
+		var endBlocks []string
+		if request.TomadorTipoLogradouro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<TipoLogradouro>%s</TipoLogradouro>", request.TomadorTipoLogradouro))
+		}
+		if request.TomadorLogradouro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Logradouro>%s</Logradouro>", request.TomadorLogradouro))
+		}
+		if request.TomadorNumero != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<NumeroEndereco>%s</NumeroEndereco>", request.TomadorNumero))
+		}
+		if request.TomadorComplemento != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<ComplementoEndereco>%s</ComplementoEndereco>", request.TomadorComplemento))
+		}
+		if request.TomadorBairro != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Bairro>%s</Bairro>", request.TomadorBairro))
+		}
+		if request.TomadorCidade != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<Cidade>%s</Cidade>", request.TomadorCidade))
+		}
+		if request.TomadorUF != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<UF>%s</UF>", request.TomadorUF))
+		}
+		if request.TomadorCEP != "" {
+			endBlocks = append(endBlocks, fmt.Sprintf("<CEP>%s</CEP>", request.TomadorCEP))
+		}
+
+		enderecoTomador := fmt.Sprintf("<EnderecoTomador>%s</EnderecoTomador>", strings.Join(endBlocks, ""))
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{ENDERECO_TOMADOR}", enderecoTomador, 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{ENDERECO_TOMADOR}", "", 1)
+	}
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{DISCRIMINACAO}", request.Discriminacao, 1)
+
+	if request.ValorTotalRecebido > 0 {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_TOTAL_RECEBIDO}", fmt.Sprintf("<ValorTotalRecebido>%.2f</ValorTotalRecebido>", request.ValorTotalRecebido), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_TOTAL_RECEBIDO}", "", 1)
+	}
+
+	valorCobrado := request.GetValorCobrado()
+	if request.ValorFinalCobrado > 0 && request.ValorInicialCobrado == 0 {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "<ValorInicialCobrado>{VALOR_INICIAL_COBRADO}</ValorInicialCobrado>", fmt.Sprintf("<ValorFinalCobrado>%.2f</ValorFinalCobrado>", request.ValorFinalCobrado), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_INICIAL_COBRADO}", fmt.Sprintf("%.2f", valorCobrado), 1)
+	}
+
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_IPI}", fmt.Sprintf("%.2f", request.ValorIPI), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{EXIGIBILIDADE_SUSPENSA}", strconv.Itoa(request.ExigibilidadeSuspensa), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{PAGAMENTO_PARCELADO_ANTECIPADO}", strconv.Itoa(request.PagamentoParcelado), 1)
+
+	if request.NCM != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{NCM_TAG}", fmt.Sprintf("<NCM>%s</NCM>", request.NCM), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{NCM_TAG}", "", 1)
+	}
+
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{NBS}", request.NBS, 1)
+
+	if request.CPaisPrestacao != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "<cLocPrestacao>{CLOC_PRESTACAO}</cLocPrestacao>", fmt.Sprintf("<cPaisPrestacao>%s</cPaisPrestacao>", request.CPaisPrestacao), 1)
+	} else {
+		loc := request.CLocPrestacao
+		if loc == "" {
+			loc = request.TomadorCidade
+		}
+		if loc == "" {
+			loc = "3550308"
+		}
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{CLOC_PRESTACAO}", loc, 1)
+	}
+
+	// IBSCBS
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{FIN_NFSE}", strconv.Itoa(request.FinNFSe), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{IND_FINAL}", strconv.Itoa(request.IndFinal), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{C_IND_OP}", request.CIndOp, 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{IND_DEST}", strconv.Itoa(request.IndDest), 1)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{C_CLASS_TRIB}", request.CClassTrib, 1)
+
+	// ASSINATURA RPS
+	hashRPS, _ := security.SignRPS(
+		strconv.Itoa(request.IM),
+		request.SerieRPS,
+		strconv.Itoa(request.NumeroRPS),
+		request.DtEmissao.Format("2006-01-02"),
+		request.Tributacao,
+		"N",
+		fmt.Sprintf("%d", int(math.Round(valorCobrado*100))),
+		fmt.Sprintf("%d", int(math.Round(request.ValorDeducoes*100))),
+		request.CodServico,
+		request.Tomador,
+		request.ISS,
+		keyPEM,
+	)
+	xmlMSGStr = strings.Replace(xmlMSGStr, "{HASH_RPS}", hashRPS, 1)
+	xmlMSGStr = xmlCleanup(xmlMSGStr)
 	return xmlMSGStr
 }

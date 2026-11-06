@@ -12,7 +12,9 @@ type NFEServiceInterface interface {
 	ConsultaCNPJ(remetente, tomador string) (string, error)
 	ConsultaNFePeriodo(request ConsultaNFERequest) ([]ConsultaNFEResponse, error)
 	EmissaoRPS(request RPSRequest) (string, error)
+	EmissaoRPS_V2(request RPSRequestV2) (string, error)
 	EmissaoLoteRPS(requests []RPSRequest) (any, error)
+	EmissaoLoteRPS_V2(requests []RPSRequestV2) (any, error)
 	CancelarNFe(request CancelarNFeRequest) (string, error)
 	CancelarLoteNFe(requests []CancelarNFeRequest) (string, error)
 }
@@ -51,12 +53,28 @@ func (s *nfeService) EmissaoRPS(request RPSRequest) (string, error) {
 	return body, nil
 }
 
+func (s *nfeService) EmissaoRPS_V2(request RPSRequestV2) (string, error) {
+	_, body := EmissaoRPS_V2(request)
+	return body, nil
+}
+
 func (s *nfeService) EmissaoLoteRPS(requests []RPSRequest) (any, error) {
 	_, body, err := EmissaoLoteRPS_V1(requests)
 	if err != nil {
 		return nil, err
 	}
+	return parseRetornoEnvioLoteRPS(body)
+}
 
+func (s *nfeService) EmissaoLoteRPS_V2(requests []RPSRequestV2) (any, error) {
+	_, body, err := EmissaoLoteRPS_V2(requests)
+	if err != nil {
+		return nil, err
+	}
+	return parseRetornoEnvioLoteRPS(body)
+}
+
+func parseRetornoEnvioLoteRPS(body string) (any, error) {
 	startIdx := strings.Index(body, "<RetornoEnvioLoteRPS")
 	endIdx := strings.Index(body, "</RetornoEnvioLoteRPS>")
 	if startIdx == -1 || endIdx == -1 {
