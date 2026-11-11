@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -11,8 +12,9 @@ import (
 type NFEServiceInterface interface {
 	ConsultaCNPJ(remetente, tomador string) (string, error)
 	ConsultaNFePeriodo(request ConsultaNFERequest) ([]ConsultaNFEResponse, error)
-	EmissaoRPS(request RPSRequest) (string, error)
-	EmissaoRPS_V2(request RPSRequestV2) (string, error)
+	EmissaoRPS(request RPSRequest) (any, error)
+	EmissaoRPS_V2(request RPSRequestV2) (any, error)
+	EmissaoDPS(request DPSRequest) (*SefinNFSeResponse, error)
 	EmissaoLoteRPS(requests []RPSRequest) (any, error)
 	EmissaoLoteRPS_V2(requests []RPSRequestV2) (any, error)
 	CancelarNFe(request CancelarNFeRequest) (string, error)
@@ -48,14 +50,78 @@ func (s *nfeService) ConsultaNFePeriodo(request ConsultaNFERequest) ([]ConsultaN
 	return retorno.NFes, nil
 }
 
-func (s *nfeService) EmissaoRPS(request RPSRequest) (string, error) {
+func (s *nfeService) EmissaoRPS(request RPSRequest) (any, error) {
 	_, body := EmissaoRPS_V1(request)
-	return body, nil
+	return parseRetornoEnvioRPS(body)
 }
 
-func (s *nfeService) EmissaoRPS_V2(request RPSRequestV2) (string, error) {
+func (s *nfeService) EmissaoRPS_V2(request RPSRequestV2) (any, error) {
 	_, body := EmissaoRPS_V2(request)
-	return body, nil
+	return parseRetornoEnvioRPS(body)
+}
+
+func (s *nfeService) EmissaoDPS(request DPSRequest) (*SefinNFSeResponse, error) {
+	return EmissaoDPS_Sefin(request)
+}
+
+func parseRetornoEnvioRPS(body string) (any, error) {
+	startIdx := strings.Index(body, "<RetornoEnvioRPS")
+	endIdx := strings.Index(body, "</RetornoEnvioRPS>")
+	if startIdx == -1 || endIdx == -1 {
+		if strings.Contains(body, "faultstring>") {
+			fStart := strings.Index(body, "<faultstring>")
+			fEnd := strings.Index(body, "</faultstring>")
+			if fStart != -1 && fEnd != -1 {
+				faultMsg := body[fStart+len("<faultstring>") : fEnd]
+				return map[string]string{"error": faultMsg, "resposta": body}, fmt.Errorf("soap fault: %s", faultMsg)
+			}
+		}
+		return map[string]string{"resposta": body}, fmt.Errorf("tag RetornoEnvioRPS não encontrada na resposta")
+	}
+
+	xmlData := body[startIdx : endIdx+len("</RetornoEnvioRPS>")]
+	var retorno RetornoEnvioRPS
+	if err := xml.Unmarshal([]byte(xmlData), &retorno); err != nil {
+		return map[string]string{"resposta": body}, fmt.Errorf("erro ao decodificar XML da resposta: %v", err)
+	}
+
+	// Popula o número do RPS em cada erro a partir de ChaveRPS ou tag direta
+	for i := range retorno.Erros {
+		if retorno.Erros[i].NumeroRPS == 0 {
+			if retorno.Erros[i].ChaveRPS.NumeroRPS != 0 {
+				retorno.Erros[i].NumeroRPS = retorno.Erros[i].ChaveRPS.NumeroRPS
+			} else if retorno.Erros[i].DirectNumeroRPS != 0 {
+				retorno.Erros[i].NumeroRPS = retorno.Erros[i].DirectNumeroRPS
+			}
+		}
+	}
+
+	// Popula o número do RPS em cada alerta a partir de ChaveRPS ou tag direta
+	for i := range retorno.Alertas {
+		if retorno.Alertas[i].NumeroRPS == 0 {
+			if retorno.Alertas[i].ChaveRPS.NumeroRPS != 0 {
+				retorno.Alertas[i].NumeroRPS = retorno.Alertas[i].ChaveRPS.NumeroRPS
+			} else if retorno.Alertas[i].DirectNumeroRPS != 0 {
+				retorno.Alertas[i].NumeroRPS = retorno.Alertas[i].DirectNumeroRPS
+			}
+		}
+	}
+
+	if !retorno.Cabecalho.Sucesso {
+		if len(retorno.Erros) == 0 && len(retorno.Alertas) > 0 {
+			for _, a := range retorno.Alertas {
+				retorno.Erros = append(retorno.Erros, ErroRetorno{
+					Codigo:    strconv.Itoa(a.Codigo),
+					Descricao: a.Descricao,
+					NumeroRPS: a.NumeroRPS,
+					ChaveRPS:  a.ChaveRPS,
+				})
+			}
+		}
+		return &retorno, fmt.Errorf("rps rejeitado")
+	}
+
+	return &retorno, nil
 }
 
 func (s *nfeService) EmissaoLoteRPS(requests []RPSRequest) (any, error) {

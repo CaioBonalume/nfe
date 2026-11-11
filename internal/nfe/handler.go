@@ -18,6 +18,7 @@ type NFEHandler interface {
 	EmissaoRPS(w http.ResponseWriter, r *http.Request)
 	EmissaoRPS_V1(w http.ResponseWriter, r *http.Request)
 	EmissaoRPS_V2(w http.ResponseWriter, r *http.Request)
+	EmissaoDPS(w http.ResponseWriter, r *http.Request)
 	EmissaoLoteRPS(w http.ResponseWriter, r *http.Request)
 	EmissaoLoteRPS_V1(w http.ResponseWriter, r *http.Request)
 	EmissaoLoteRPS_V2(w http.ResponseWriter, r *http.Request)
@@ -122,41 +123,113 @@ func (h *nfeHandler) ConsultaNFePeriodo(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, body)
 }
 
-// detectLeiaute identifica se a requisição deve ser processada no Leiaute 1 ou Leiaute 2.
-// Retorna 1, 2 ou 0 (se não especificado).
+// detectLeiaute identifica se a requisição deve ser processada no Leiaute 1 (PMSP v1), Leiaute 2 (PMSP v2) ou Leiaute 3 (DPS Sefin Nacional).
+// Retorna 1, 2, 3 ou 0 (se não especificado).
 func detectLeiaute(r *http.Request, bodyBytes []byte) int {
-	// 1. Query Param ?leiaute=1|2
-	q := strings.TrimSpace(r.URL.Query().Get("leiaute"))
+	// 1. Query Param ?leiaute=1|2|3|dps|nacional ou ?emissor=sefin|nacional
+	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("leiaute")))
 	if q == "1" {
 		return 1
 	}
 	if q == "2" {
 		return 2
 	}
+	if q == "3" || q == "dps" || q == "nacional" || q == "sefin" {
+		return 3
+	}
+	emissor := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("emissor")))
+	if emissor == "sefin" || emissor == "nacional" {
+		return 3
+	}
 
-	// 2. Header HTTP X-Leiaute-Versao
-	h := strings.TrimSpace(r.Header.Get("X-Leiaute-Versao"))
+	// 2. Header HTTP X-Leiaute-Versao ou X-Emissor
+	h := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Leiaute-Versao")))
 	if h == "1" {
 		return 1
 	}
 	if h == "2" {
 		return 2
 	}
+	if h == "3" || h == "dps" || h == "nacional" || h == "sefin" {
+		return 3
+	}
+	hEmissor := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Emissor")))
+	if hEmissor == "sefin" || hEmissor == "nacional" {
+		return 3
+	}
 
 	// 3. Inspeção do payload JSON
 	if len(bodyBytes) > 0 {
 		var peek struct {
-			Leiaute int `json:"leiaute"`
+			Leiaute           any    `json:"leiaute"`
+			Emissor           string `json:"emissor"`
+			OpSimplesNacional int    `json:"op_simples_nacional"`
+			NumeroDPS         int    `json:"numero_dps"`
+			SerieDPS          string `json:"serie_dps"`
+			CLocEmi           string `json:"c_loc_emi"`
 		}
-		if err := json.Unmarshal(bodyBytes, &peek); err == nil && (peek.Leiaute == 1 || peek.Leiaute == 2) {
-			return peek.Leiaute
+		if err := json.Unmarshal(bodyBytes, &peek); err == nil {
+			// Se o campo leiaute for numérico ou string
+			switch v := peek.Leiaute.(type) {
+			case float64:
+				if int(v) == 1 {
+					return 1
+				}
+				if int(v) == 2 {
+					return 2
+				}
+				if int(v) == 3 {
+					return 3
+				}
+			case string:
+				vLower := strings.ToLower(strings.TrimSpace(v))
+				if vLower == "1" {
+					return 1
+				}
+				if vLower == "2" {
+					return 2
+				}
+				if vLower == "3" || vLower == "dps" || vLower == "nacional" || vLower == "sefin" {
+					return 3
+				}
+			}
+
+			// Se indicar Sefin ou campos exclusivos do padrão nacional DPS
+			if strings.ToLower(peek.Emissor) == "sefin" || strings.ToLower(peek.Emissor) == "nacional" {
+				return 3
+			}
+			if peek.NumeroDPS > 0 || peek.SerieDPS != "" || peek.CLocEmi != "" || peek.OpSimplesNacional > 0 {
+				return 3
+			}
 		}
+
 		// Se for array: analisa se o primeiro item especifica leiaute
 		var peekArr []struct {
-			Leiaute int `json:"leiaute"`
+			Leiaute           any    `json:"leiaute"`
+			OpSimplesNacional int    `json:"op_simples_nacional"`
+			NumeroDPS         int    `json:"numero_dps"`
 		}
-		if err := json.Unmarshal(bodyBytes, &peekArr); err == nil && len(peekArr) > 0 && (peekArr[0].Leiaute == 1 || peekArr[0].Leiaute == 2) {
-			return peekArr[0].Leiaute
+		if err := json.Unmarshal(bodyBytes, &peekArr); err == nil && len(peekArr) > 0 {
+			switch v := peekArr[0].Leiaute.(type) {
+			case float64:
+				if int(v) == 1 || int(v) == 2 || int(v) == 3 {
+					return int(v)
+				}
+			case string:
+				vLower := strings.ToLower(strings.TrimSpace(v))
+				if vLower == "1" {
+					return 1
+				}
+				if vLower == "2" {
+					return 2
+				}
+				if vLower == "3" || vLower == "dps" || vLower == "nacional" {
+					return 3
+				}
+			}
+			if peekArr[0].NumeroDPS > 0 || peekArr[0].OpSimplesNacional > 0 {
+				return 3
+			}
 		}
 	}
 
@@ -165,7 +238,7 @@ func detectLeiaute(r *http.Request, bodyBytes []byte) int {
 
 // ---- EmissaoRPS ----
 // POST /v1/nfe/emissao-rps
-// Suporta Leiaute 1 e 2. Se o leiaute não for especificado, retorna HTTP 400 perguntando ao cliente.
+// Suporta Leiaute 1 (PMSP v1), 2 (PMSP v2) e 3 (DPS Sefin Nacional). Se o leiaute não for especificado, retorna HTTP 400.
 
 func (h *nfeHandler) EmissaoRPS(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := io.ReadAll(r.Body)
@@ -176,7 +249,12 @@ func (h *nfeHandler) EmissaoRPS(w http.ResponseWriter, r *http.Request) {
 
 	leiaute := detectLeiaute(r, bodyBytes)
 	if leiaute == 0 {
-		writeError(w, http.StatusBadRequest, "leiaute não informado. Para emissões individuais, especifique o leiaute desejado (1 ou 2) via query param ?leiaute=1|2, header X-Leiaute-Versao ou campo 'leiaute' no JSON")
+		writeError(w, http.StatusBadRequest, "leiaute não informado. Para emissões individuais, especifique o leiaute desejado (1=PMSP v1, 2=PMSP v2, 3/dps=Sefin Nacional) via query param ?leiaute=..., header X-Leiaute-Versao ou campo 'leiaute' no JSON")
+		return
+	}
+
+	if leiaute == 3 {
+		h.processEmissaoDPS(w, bodyBytes)
 		return
 	}
 
@@ -186,16 +264,20 @@ func (h *nfeHandler) EmissaoRPS(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "body JSON inválido para Leiaute 1: "+err.Error())
 			return
 		}
-		if req.Remetente == "" || req.Tomador == "" {
-			writeError(w, http.StatusBadRequest, "remetente e tomador obrigatórios")
+		if err := req.Validate(); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		body, err := h.nfeService.EmissaoRPS(req)
 		if err != nil {
+			if body != nil {
+				writeJSON(w, http.StatusBadRequest, body)
+				return
+			}
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"resultado": body})
+		writeJSON(w, http.StatusOK, body)
 		return
 	}
 
@@ -211,10 +293,48 @@ func (h *nfeHandler) EmissaoRPS(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := h.nfeService.EmissaoRPS_V2(reqV2)
 	if err != nil {
+		if body != nil {
+			writeJSON(w, http.StatusBadRequest, body)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"resultado": body})
+	writeJSON(w, http.StatusOK, body)
+}
+
+// ---- EmissaoDPS ----
+// POST /v1/nfe/emissao-dps
+// Emissão síncrona de DPS no Emissor Nacional (Sefin Nacional).
+func (h *nfeHandler) EmissaoDPS(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "erro ao ler corpo da requisição")
+		return
+	}
+	h.processEmissaoDPS(w, bodyBytes)
+}
+
+func (h *nfeHandler) processEmissaoDPS(w http.ResponseWriter, bodyBytes []byte) {
+	var req DPSRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "body JSON inválido para Emissão DPS Nacional: "+err.Error())
+		return
+	}
+	if err := req.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	resp, err := h.nfeService.EmissaoDPS(req)
+	if err != nil {
+		if resp != nil {
+			writeJSON(w, http.StatusBadRequest, resp)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // ---- EmissaoRPS_V1 ----
@@ -229,18 +349,22 @@ func (h *nfeHandler) EmissaoRPS_V1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Remetente == "" || req.Tomador == "" {
-		writeError(w, http.StatusBadRequest, "remetente e tomador obrigatórios")
+	if err := req.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	body, err := h.nfeService.EmissaoRPS(req)
 	if err != nil {
+		if body != nil {
+			writeJSON(w, http.StatusBadRequest, body)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"resultado": body})
+	writeJSON(w, http.StatusOK, body)
 }
 
 // ---- EmissaoRPS_V2 ----
@@ -262,11 +386,15 @@ func (h *nfeHandler) EmissaoRPS_V2(w http.ResponseWriter, r *http.Request) {
 
 	body, err := h.nfeService.EmissaoRPS_V2(req)
 	if err != nil {
+		if body != nil {
+			writeJSON(w, http.StatusBadRequest, body)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"resultado": body})
+	writeJSON(w, http.StatusOK, body)
 }
 
 // ---- EmissaoLoteRPS ----
@@ -289,14 +417,19 @@ func (h *nfeHandler) EmissaoLoteRPS(w http.ResponseWriter, r *http.Request) {
 	if leiaute == 1 {
 		var requests []RPSRequest
 		if err := json.Unmarshal(bodyBytes, &requests); err != nil || len(requests) == 0 {
-			var wrapper struct {
-				Requests []RPSRequest `json:"requests"`
-			}
+			var wrapper LoteRPSRequest
 			if err2 := json.Unmarshal(bodyBytes, &wrapper); err2 != nil || len(wrapper.Requests) == 0 {
 				writeError(w, http.StatusBadRequest, "lista de RPS vazia ou formato inválido para Leiaute 1")
 				return
 			}
 			requests = wrapper.Requests
+		}
+
+		for i, rps := range requests {
+			if err := rps.Validate(); err != nil {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("rps [%d] invalido: %v", i+1, err))
+				return
+			}
 		}
 
 		body, err := h.nfeService.EmissaoLoteRPS(requests)
@@ -347,16 +480,27 @@ func (h *nfeHandler) EmissaoLoteRPS(w http.ResponseWriter, r *http.Request) {
 // JSON body: []RPSRequest
 
 func (h *nfeHandler) EmissaoLoteRPS_V1(w http.ResponseWriter, r *http.Request) {
-	var requests []RPSRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&requests); err != nil {
-		writeError(w, http.StatusBadRequest, "body JSON inválido")
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "erro ao ler corpo da requisição")
 		return
 	}
 
-	if len(requests) == 0 {
-		writeError(w, http.StatusBadRequest, "lista de RPS vazia")
-		return
+	var requests []RPSRequest
+	if err := json.Unmarshal(bodyBytes, &requests); err != nil || len(requests) == 0 {
+		var wrapper LoteRPSRequest
+		if err2 := json.Unmarshal(bodyBytes, &wrapper); err2 != nil || len(wrapper.Requests) == 0 {
+			writeError(w, http.StatusBadRequest, "lista de RPS vazia ou formato inválido para Leiaute 1")
+			return
+		}
+		requests = wrapper.Requests
+	}
+
+	for i, rps := range requests {
+		if err := rps.Validate(); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("rps [%d] invalido: %v", i+1, err))
+			return
+		}
 	}
 
 	body, err := h.nfeService.EmissaoLoteRPS(requests)

@@ -27,11 +27,12 @@
     {CPFCNPJ_TOMADOR}
     {ENDERECO_TOMADOR}
     <Discriminacao>{DISCRIMINACAO}</Discriminacao>
+    {MUNICIPIO_PRESTACAO}
     {VALOR_TOTAL_RECEBIDO}
+    {RETENCAO_PIS_COFINS}
     <ValorInicialCobrado>{VALOR_INICIAL_COBRADO}</ValorInicialCobrado>
     <ValorIPI>{VALOR_IPI}</ValorIPI>
     <ExigibilidadeSuspensa>{EXIGIBILIDADE_SUSPENSA}</ExigibilidadeSuspensa>
-    <PagamentoParceladoAntecipado>{PAGAMENTO_PARCELADO_ANTECIPADO}</PagamentoParceladoAntecipado>
     {NCM_TAG}
     <NBS>{NBS}</NBS>
     <cLocPrestacao>{CLOC_PRESTACAO}</cLocPrestacao>

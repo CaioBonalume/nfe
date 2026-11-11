@@ -17,6 +17,8 @@ func SetupRoutes(r chi.Router, h NFEHandler) {
 		r.Post("/emissao-rps", h.EmissaoRPS)
 		r.Post("/emissao-rps/v1", h.EmissaoRPS_V1)
 		r.Post("/emissao-rps/v2", h.EmissaoRPS_V2)
+		// DPS unitário (Emissor Nacional Sefin)
+		r.Post("/emissao-dps", h.EmissaoDPS)
 
 		// lote de RPS (aplica leiaute uniforme para todos os RPS do lote)
 		r.Post("/emissao-lote-rps", h.EmissaoLoteRPS)

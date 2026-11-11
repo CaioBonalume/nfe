@@ -16,7 +16,7 @@
     <TipoRPS>RPS</TipoRPS>
     <DataEmissao>{DATA_EMISSAO}</DataEmissao>
     <StatusRPS>N</StatusRPS>
-    <TributacaoRPS>T</TributacaoRPS>
+    <TributacaoRPS>{TRIBUTACAO_RPS}</TributacaoRPS>
     <ValorServicos>{VALOR_SERVICO}</ValorServicos>
     <ValorDeducoes>{VALOR_DEDUCOES}</ValorDeducoes>
     <ValorPIS>{VALOR_PIS}</ValorPIS>
@@ -31,6 +31,7 @@
     {ENDERECO_TOMADOR}
 
     <Discriminacao>{DISCRIMINACAO}</Discriminacao>
+    {MUNICIPIO_PRESTACAO}
   </RPS>
 
 </p1:PedidoEnvioRPS>

@@ -404,19 +404,23 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 	if request.NumeroRPS < 1 {
 		numRps, err := lastRPSNumber(request)
 		if err != nil {
-			log.Fatalf("%v", err)
+			panic(fmt.Sprintf("número de RPS não informado e falha ao buscar último RPS: %v. Informe o campo numero_rps (ou numero_dps) explicitamente", err))
 		}
 		request.NumeroRPS = numRps + 1
 
 	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{NUMERO_RPS}", strconv.Itoa(request.NumeroRPS), 1)
 
+	if request.DtEmissao.IsZero() {
+		request.DtEmissao = time.Now()
+	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DATA_EMISSAO}", request.DtEmissao.Format("2006-01-02"), 1)
 
 	if request.Tributacao != "" {
 		xmlMSGStr = strings.Replace(xmlMSGStr, "{TRIBUTACAO_RPS}", request.Tributacao, 1)
 	} else {
 		request.Tributacao = "T"
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{TRIBUTACAO_RPS}", "T", 1)
 	}
 
 	IM := strconv.Itoa(request.IM)
@@ -493,7 +497,14 @@ func writeRPS(request RPSRequest, keyPEM []byte, onlyRPSOpt ...bool) string {
 		xmlMSGStr = strings.Replace(xmlMSGStr, "{ENDERECO_TOMADOR}", "", 1)
 	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DISCRIMINACAO}", request.Discriminacao, 1)
-	// ASSINATURA RPS
+
+	mun := request.GetMunicipioPrestacao()
+	if mun != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{MUNICIPIO_PRESTACAO}", fmt.Sprintf("<MunicipioPrestacao>%s</MunicipioPrestacao>", mun), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{MUNICIPIO_PRESTACAO}", "", 1)
+	}
+	// ASSINATURA RPS (Leiaute 1: Inscrição Municipal com 8 dígitos, string de 86 posições)
 	hashRPS, _ := security.SignRPS(
 		strconv.Itoa(request.IM),
 		request.SerieRPS,
@@ -783,7 +794,7 @@ func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string 
 	if request.NumeroRPS < 1 {
 		numRps, err := lastRPSNumberV2(request)
 		if err != nil {
-			log.Fatalf("%v", err)
+			panic(fmt.Sprintf("número de RPS não informado e falha ao buscar último RPS: %v. Informe o campo numero_rps (ou numero_dps) explicitamente", err))
 		}
 		request.NumeroRPS = numRps + 1
 	}
@@ -861,10 +872,23 @@ func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string 
 	}
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{DISCRIMINACAO}", request.Discriminacao, 1)
 
+	mun := request.GetMunicipioPrestacao()
+	if mun != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{MUNICIPIO_PRESTACAO}", fmt.Sprintf("<MunicipioPrestacao>%s</MunicipioPrestacao>", mun), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{MUNICIPIO_PRESTACAO}", "", 1)
+	}
+
 	if request.ValorTotalRecebido > 0 {
 		xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_TOTAL_RECEBIDO}", fmt.Sprintf("<ValorTotalRecebido>%.2f</ValorTotalRecebido>", request.ValorTotalRecebido), 1)
 	} else {
 		xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_TOTAL_RECEBIDO}", "", 1)
+	}
+
+	if request.RetencaoPisCofins != "" {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{RETENCAO_PIS_COFINS}", fmt.Sprintf("<RetencaoPisCofins>%s</RetencaoPisCofins>", request.RetencaoPisCofins), 1)
+	} else {
+		xmlMSGStr = strings.Replace(xmlMSGStr, "{RETENCAO_PIS_COFINS}", "", 1)
 	}
 
 	valorCobrado := request.GetValorCobrado()
@@ -876,7 +900,6 @@ func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string 
 
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{VALOR_IPI}", fmt.Sprintf("%.2f", request.ValorIPI), 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{EXIGIBILIDADE_SUSPENSA}", strconv.Itoa(request.ExigibilidadeSuspensa), 1)
-	xmlMSGStr = strings.Replace(xmlMSGStr, "{PAGAMENTO_PARCELADO_ANTECIPADO}", strconv.Itoa(request.PagamentoParcelado), 1)
 
 	if request.NCM != "" {
 		xmlMSGStr = strings.Replace(xmlMSGStr, "{NCM_TAG}", fmt.Sprintf("<NCM>%s</NCM>", request.NCM), 1)
@@ -890,6 +913,11 @@ func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string 
 		xmlMSGStr = strings.Replace(xmlMSGStr, "<cLocPrestacao>{CLOC_PRESTACAO}</cLocPrestacao>", fmt.Sprintf("<cPaisPrestacao>%s</cPaisPrestacao>", request.CPaisPrestacao), 1)
 	} else {
 		loc := request.CLocPrestacao
+		if (request.Tributacao == "F" || request.Tributacao == "B") && (loc == "" || loc == "3550308") {
+			if mun != "" {
+				loc = mun
+			}
+		}
 		if loc == "" {
 			loc = request.TomadorCidade
 		}
@@ -906,8 +934,8 @@ func writeRPSV2(request RPSRequestV2, keyPEM []byte, onlyRPSOpt ...bool) string 
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{IND_DEST}", strconv.Itoa(request.IndDest), 1)
 	xmlMSGStr = strings.Replace(xmlMSGStr, "{C_CLASS_TRIB}", request.CClassTrib, 1)
 
-	// ASSINATURA RPS
-	hashRPS, _ := security.SignRPS(
+	// ASSINATURA RPS (Leiaute 2: Inscrição Municipal com 12 dígitos, string de 90 posições)
+	hashRPS, _ := security.SignRPS_V2(
 		strconv.Itoa(request.IM),
 		request.SerieRPS,
 		strconv.Itoa(request.NumeroRPS),

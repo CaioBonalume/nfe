@@ -36,7 +36,7 @@ type ChaveNFe struct {
 	InscricaoPrestador string `xml:"InscricaoPrestador" json:"inscricao_prestador"`
 	NumeroNFe          int    `xml:"NumeroNFe" json:"numero_nfe"`
 	CodigoVerificacao  string `xml:"CodigoVerificacao" json:"codigo_verificacao"`
-	ChaveNotaNacional  string `xml:"ChaveNotaNacional" json:"chave_nota_nacional"`
+	ChaveNotaNacional  string `xml:"ChaveNotaNacional" json:"chave_nota_nacional,omitempty"`
 }
 
 type ChaveRPS struct {

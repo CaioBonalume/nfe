@@ -113,6 +113,9 @@ func TestWriteRPSV2(t *testing.T) {
 	if !strings.Contains(xml, "<ExigibilidadeSuspensa>0</ExigibilidadeSuspensa>") {
 		t.Errorf("esperado <ExigibilidadeSuspensa>0</ExigibilidadeSuspensa>")
 	}
+	if strings.Contains(xml, "PagamentoParceladoAntecipado") {
+		t.Errorf("nao esperado <PagamentoParceladoAntecipado> no Leiaute 2 (campo descontinuado)")
+	}
 	if !strings.Contains(xml, "<NBS>101010100</NBS>") {
 		t.Errorf("esperado <NBS>101010100</NBS>")
 	}
@@ -130,6 +133,17 @@ func TestWriteRPSV2(t *testing.T) {
 	}
 	if !strings.Contains(xml, "<Assinatura>") {
 		t.Errorf("esperado <Assinatura> no RPS V2")
+	}
+	if strings.Contains(xml, "{RETENCAO_PIS_COFINS}") {
+		t.Errorf("placeholder {RETENCAO_PIS_COFINS} nao foi substituido")
+	}
+
+	// Com RetencaoPisCofins preenchido
+	reqComRetencao := req
+	reqComRetencao.RetencaoPisCofins = "3"
+	xmlRetencao := writeRPSV2(reqComRetencao, keyPEM)
+	if !strings.Contains(xmlRetencao, "<RetencaoPisCofins>3</RetencaoPisCofins>") {
+		t.Errorf("esperado <RetencaoPisCofins>3</RetencaoPisCofins>, obteve:\n%s", xmlRetencao)
 	}
 }
 
@@ -275,5 +289,114 @@ func TestRPSRequestV2_Validate(t *testing.T) {
 	invalidReq.ValorServ = 0
 	if err := invalidReq.Validate(); err == nil {
 		t.Errorf("esperado erro quando valor cobrado <= 0")
+	}
+}
+
+func TestWriteRPS_V1_CustomTributacao(t *testing.T) {
+	keyPEM := generateTestKey(t)
+
+	req := RPSRequest{
+		Remetente:     "59789981000140",
+		IM:            17329248,
+		SerieRPS:      "NFBON",
+		NumeroRPS:     2067,
+		DtEmissao:     time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC),
+		Tributacao:    "F",
+		ValorServ:     30545.00,
+		CodServico:    "07498",
+		Aliquota:      0.00,
+		ISS:           false,
+		Tomador:       "58801036000154",
+		Discriminacao: "Servico teste tributacao F",
+	}
+
+	xml := writeRPS(req, keyPEM)
+
+	if !strings.Contains(xml, "<TributacaoRPS>F</TributacaoRPS>") {
+		t.Errorf("esperado <TributacaoRPS>F</TributacaoRPS>, obteve:\n%s", xml)
+	}
+	if !strings.Contains(xml, "<ValorServicos>30545.00</ValorServicos>") {
+		t.Errorf("esperado <ValorServicos>30545.00</ValorServicos>, obteve:\n%s", xml)
+	}
+}
+
+func TestWriteRPSV2_MunicipioPrestacao_TributacaoF(t *testing.T) {
+	keyPEM := generateTestKey(t)
+
+	// Caso 1: Tributação F com municipio_prestacao explícito
+	req := RPSRequestV2{
+		Remetente:          "46408769000144",
+		IM:                 73149870,
+		SerieRPS:           "A",
+		NumeroRPS:          744,
+		DtEmissao:          time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC),
+		Tributacao:         "F",
+		ValorFinalCobrado:  1800.00,
+		NBS:                "118029000",
+		MunicipioPrestacao: "3513801",
+		FinNFSe:            0,
+		IndFinal:           0,
+		CIndOp:             "100301",
+		IndDest:            0,
+		CClassTrib:         "000001",
+		CodServico:         "07498",
+		Aliquota:           0.02,
+		ISS:                false,
+		Tomador:            "56366350000120",
+		TomadorCidade:      "3513801",
+		Discriminacao:      "Teste tributacao F",
+	}
+
+	if err := req.Validate(); err != nil {
+		t.Fatalf("esperado sucesso na validacao, erro: %v", err)
+	}
+
+	xml := writeRPSV2(req, keyPEM)
+	if !strings.Contains(xml, "<MunicipioPrestacao>3513801</MunicipioPrestacao>") {
+		t.Errorf("esperado <MunicipioPrestacao>3513801</MunicipioPrestacao>, obteve:\n%s", xml)
+	}
+	if !strings.Contains(xml, "<cLocPrestacao>3513801</cLocPrestacao>") {
+		t.Errorf("esperado <cLocPrestacao>3513801</cLocPrestacao>, obteve:\n%s", xml)
+	}
+
+	// Caso 2: Tributação F sem municipio_prestacao explicito, mas com tomador_cidade
+	reqSemMun := req
+	reqSemMun.MunicipioPrestacao = ""
+	reqSemMun.CLocPrestacao = "3550308" // Usuário enviou SP por engano
+	if err := reqSemMun.Validate(); err != nil {
+		t.Fatalf("esperado fallback para TomadorCidade na validacao, erro: %v", err)
+	}
+	xmlSemMun := writeRPSV2(reqSemMun, keyPEM)
+	if !strings.Contains(xmlSemMun, "<MunicipioPrestacao>3513801</MunicipioPrestacao>") {
+		t.Errorf("esperado fallback <MunicipioPrestacao>3513801</MunicipioPrestacao>, obteve:\n%s", xmlSemMun)
+	}
+	if !strings.Contains(xmlSemMun, "<cLocPrestacao>3513801</cLocPrestacao>") {
+		t.Errorf("esperado alinhamento de <cLocPrestacao> com município fora de SP, obteve:\n%s", xmlSemMun)
+	}
+
+	// Caso 3: Tributação T (São Paulo) NUNCA deve incluir MunicipioPrestacao (Regra 1223)
+	reqTribT := req
+	reqTribT.Tributacao = "T"
+	reqTribT.MunicipioPrestacao = "3513801"
+	xmlTribT := writeRPSV2(reqTribT, keyPEM)
+	if strings.Contains(xmlTribT, "<MunicipioPrestacao>") {
+		t.Errorf("nao esperado <MunicipioPrestacao> para Tributacao T (regra 1223)")
+	}
+
+	// Caso 4: Validação rejeita quando Tributacao F e municipio é São Paulo (Regra 1232)
+	reqInvalidaSP := req
+	reqInvalidaSP.MunicipioPrestacao = "3550308"
+	reqInvalidaSP.TomadorCidade = "3550308"
+	if err := reqInvalidaSP.Validate(); err == nil {
+		t.Errorf("esperado erro ao informar São Paulo (3550308) com tributacao F")
+	}
+
+	// Caso 5: Validação rejeita quando Tributacao F e nenhum município fora de SP informado
+	reqSemNenhumMun := req
+	reqSemNenhumMun.MunicipioPrestacao = ""
+	reqSemNenhumMun.TomadorCidade = ""
+	reqSemNenhumMun.CLocPrestacao = ""
+	if err := reqSemNenhumMun.Validate(); err == nil {
+		t.Errorf("esperado erro de municipio_prestacao obrigatorio para tributacao F")
 	}
 }

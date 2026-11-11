@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -191,17 +192,31 @@ func SignBlock(xmlContent string, keyPEM []byte, certPEM []byte) (string, error)
 }
 
 func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador string, issRetido bool, keyPEM []byte) (string, error) {
+	return signRPSInternal(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador, issRetido, 1, keyPEM)
+}
+
+func SignRPS_V2(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador string, issRetido bool, keyPEM []byte) (string, error) {
+	return signRPSInternal(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador, issRetido, 2, keyPEM)
+}
+
+func signRPSInternal(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, deducoesStr, codServico, cnpjTomador string, issRetido bool, versao int, keyPEM []byte) (string, error) {
 	// 1. Formatação
-	ccmFmt := fmt.Sprintf("%08s", ccm)
+	var ccmFmt string
+	if versao >= 2 {
+		// Leiaute 2 (versão 2): tpInscricaoMunicipal possui até 12 posições,
+		// e a prefeitura formata o CCM com 12 dígitos com zeros à esquerda (string de 90 posições).
+		ccmFmt = fmt.Sprintf("%012s", ccm)
+	} else {
+		// Leiaute 1 (versão 1): CCM com 8 posições completado com zeros à esquerda (string de 86 posições).
+		ccmFmt = fmt.Sprintf("%08s", ccm)
+	}
+
 	serieFmt := fmt.Sprintf("%-5.5s", serie)
 	numeroFmt := fmt.Sprintf("%012s", numeroRPS)
 	dataFmt := strings.ReplaceAll(dataEmissao, "-", "")
 	tribFmt := tributacao
 	statusFmt := status
 	valorFmt := fmt.Sprintf("%015s", valorStr)
-	// 19.12.25
-	// ATENÇÃO O SISTEMA COLOCA OS CENTAVOS COMO ZERO SOZINHO!!! REVER ESTA PARTE
-	log.Printf("Valor formatado para assinatura RPS: %s", valorFmt)
 	deducoesFmt := fmt.Sprintf("%015s", deducoesStr)
 	codServFmt := fmt.Sprintf("%05s", codServico)
 	tipoDoc, _, tomadorFmt := DetectTomadorDoc(cnpjTomador)
@@ -214,8 +229,7 @@ func SignRPS(ccm, serie, numeroRPS, dataEmissao, tributacao, status, valorStr, d
 	}
 
 	rawString := ccmFmt + serieFmt + numeroFmt + dataFmt + tribFmt + statusFmt + issFmt + valorFmt + deducoesFmt + codServFmt + cpfCNPJ + tomadorFmt
-	// Check-in
-	// log.Printf("String para Assinatura RPS: %s", rawString)
+	log.Printf("String para Assinatura RPS V%d (%d chars): [%s]", versao, len(rawString), rawString)
 
 	// Calcular o Hash SHA1 da string concatenada
 	hasher := sha1.New()
@@ -261,3 +275,68 @@ func SignCancelamento(ccm, numeroNFe string, keyPEM []byte) (string, error) {
 
 	return base64.StdEncoding.EncodeToString(sigBytes), nil
 }
+
+// SignDPS assina a Declaração de Prestação de Serviços (DPS) do Padrão Nacional via XMLDSig com SHA-256
+func SignDPS(dpsXML string, dpsID string, keyPEM []byte, certPEM []byte) (string, error) {
+	if !strings.HasPrefix(strings.TrimSpace(dpsXML), "<?xml") {
+		dpsXML = `<?xml version="1.0" encoding="UTF-8"?>` + dpsXML
+	}
+
+	startIdx := strings.Index(dpsXML, "<infDPS")
+	endIdx := strings.Index(dpsXML, "</infDPS>")
+	if startIdx == -1 || endIdx == -1 {
+		return "", fmt.Errorf("tag infDPS não encontrada no XML da DPS")
+	}
+	infDPSContent := dpsXML[startIdx : endIdx+len("</infDPS>")]
+
+	// Para C14N inclusivo (REC-xml-c14n-20010315), o nó raiz infDPS herda o namespace
+	// xmlns="http://www.sped.fazenda.gov.br/nfse" da tag pai DPS se ainda não declarado no nó.
+	canonicalInfDPS := infDPSContent
+	if !strings.Contains(canonicalInfDPS, `xmlns="http://www.sped.fazenda.gov.br/nfse"`) {
+		canonicalInfDPS = strings.Replace(canonicalInfDPS, "<infDPS ", `<infDPS xmlns="http://www.sped.fazenda.gov.br/nfse" `, 1)
+	}
+
+	hasher := sha256.New()
+	hasher.Write([]byte(canonicalInfDPS))
+	digest := base64.StdEncoding.EncodeToString(hasher.Sum(nil))
+
+	signedInfoTemplate := `<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></CanonicalizationMethod><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"></SignatureMethod><Reference URI="#%s"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></Transform><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></Transform></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"></DigestMethod><DigestValue>%s</DigestValue></Reference></SignedInfo>`
+	signedInfoStr := fmt.Sprintf(signedInfoTemplate, dpsID, digest)
+
+	rsaKey, err := parseRSAPrivateKey(keyPEM)
+	if err != nil {
+		return "", fmt.Errorf("erro parse rsa: %v", err)
+	}
+
+	siHasher := sha256.New()
+	siHasher.Write([]byte(signedInfoStr))
+	siHash := siHasher.Sum(nil)
+
+	sigBytes, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA256, siHash)
+	if err != nil {
+		return "", fmt.Errorf("erro assinatura rsa sha256: %v", err)
+	}
+	signatureValue := base64.StdEncoding.EncodeToString(sigBytes)
+
+	blockCert, _ := pem.Decode(certPEM)
+	var certBase64 string
+	if blockCert != nil {
+		certBase64 = base64.StdEncoding.EncodeToString(blockCert.Bytes)
+	} else {
+		certBase64 = string(certPEM)
+		certBase64 = strings.ReplaceAll(certBase64, "-----BEGIN CERTIFICATE-----", "")
+		certBase64 = strings.ReplaceAll(certBase64, "-----END CERTIFICATE-----", "")
+		certBase64 = strings.ReplaceAll(certBase64, "\n", "")
+		certBase64 = strings.ReplaceAll(certBase64, "\r", "")
+	}
+
+	signatureBlock := fmt.Sprintf(`<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">%s<SignatureValue>%s</SignatureValue><KeyInfo><X509Data><X509Certificate>%s</X509Certificate></X509Data></KeyInfo></Signature>`,
+		signedInfoStr, signatureValue, certBase64)
+
+	if !strings.Contains(dpsXML, "</DPS>") {
+		return "", fmt.Errorf("tag de fechamento </DPS> não encontrada")
+	}
+	signedDPS := strings.Replace(dpsXML, "</DPS>", signatureBlock+"</DPS>", 1)
+	return signedDPS, nil
+}
+
